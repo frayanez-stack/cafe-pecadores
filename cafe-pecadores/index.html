@@ -246,6 +246,50 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
   </div>
 </div>
 
+<!-- TRASPASO MODAL -->
+<div id="modal-traspaso" style="position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(45,26,8,.45);backdrop-filter:blur(4px);padding:20px;">
+  <div style="background:var(--white);border-radius:var(--r);padding:28px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);border-top:4px solid var(--soberbia);animation:up .3s ease;">
+    <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">🔄 Traspaso de Stock</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Transferir unidades entre usuarios</div>
+    <div id="tr-alert" class="alert"></div>
+    <div class="fr">
+      <div class="fg ff">
+        <label class="fl">Producto</label>
+        <select class="fi" id="tr-prod" onchange="updateTraspasoInfo()">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Usuario Origen</label>
+        <select class="fi" id="tr-origen" onchange="updateTraspasoInfo()">
+          <option value="AR">A.R.</option>
+          <option value="JG">J.G.</option>
+          <option value="MS">M.S.</option>
+          <option value="FY">F.Y.</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Usuario Destino</label>
+        <select class="fi" id="tr-destino">
+          <option value="AR">A.R.</option>
+          <option value="JG">J.G.</option>
+          <option value="MS">M.S.</option>
+          <option value="FY">F.Y.</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Cantidad</label>
+        <input type="number" class="fi" id="tr-cant" min="1" placeholder="0" oninput="updateTraspasoInfo()">
+      </div>
+    </div>
+    <div id="tr-info" class="prev-box" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button onclick="closeTraspaso()" class="btn-sec" style="flex:1;">CANCELAR</button>
+      <button id="btn-traspaso" onclick="registrarTraspaso()" style="flex:1;background:linear-gradient(135deg,var(--soberbia),#3498db);border:none;border-radius:var(--r2);color:var(--white);font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px;cursor:pointer;">CONFIRMAR TRASPASO</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
@@ -345,7 +389,13 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
             <div class="fg"><label class="fl">Canal</label><select class="fi" id="v-canal"><option>Instagram</option><option>WhatsApp</option><option>Presencial</option><option>Otro</option></select></div>
             <div class="fg ff"><label class="fl">Cliente *</label><input type="text" class="fi" id="v-cliente" placeholder="NOMBRE CLIENTE" oninput="this.value=this.value.toUpperCase()"></div>
             <div class="fg ff" id="v-pago-wrap"><label class="fl">Forma de Pago</label><select class="fi" id="v-pago"><option>Efectivo</option><option>Transferencia</option><option>WebPay</option></select></div>
-            <div class="fg ff"><label class="fl">Producto</label><select class="fi" id="v-prod" onchange="calcUnit()"><option value="">— Seleccionar —</option></select></div>
+            <div class="fg ff"><label class="fl">Producto</label><select class="fi" id="v-prod" onchange="calcUnit();mostrarStockDisponible()"><option value="">— Seleccionar —</option></select></div>
+            <div id="stock-disp-wrap" style="display:none;grid-column:1/-1;background:rgba(239,133,8,.07);border:1px solid rgba(239,133,8,.2);border-left:3px solid var(--accent);border-radius:var(--r2);padding:10px 14px;font-size:13px;">
+              <span style="color:var(--muted);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Stock disponible</span><br>
+              <span id="stock-disp-num" style="font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:var(--accent);">0</span>
+              <span style="color:var(--muted);font-size:12px;"> unidades disponibles para vender</span>
+              <span id="stock-reservado-num" style="color:var(--reservado);font-size:12px;margin-left:12px;"></span>
+            </div>
             <div class="fg"><label class="fl">Cantidad</label><input type="number" class="fi" id="v-cant" min="1" placeholder="0" oninput="calcUnit()"></div>
             <div class="fg"><label class="fl">Precio unit. ($)</label><input type="number" class="fi" id="v-precio" min="0" placeholder="0" oninput="calcUnit()"></div>
           </div>
@@ -428,7 +478,7 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
 
     <!-- INVENTARIO -->
     <div class="page" id="page-inv">
-      <div class="ph"><div><div class="pt">Inventario</div><div class="ps">Stock consolidado</div></div><button class="btn-sec" onclick="loadInv()">↻</button></div>
+      <div class="ph"><div><div class="pt">Inventario</div><div class="ps">Stock consolidado</div></div><div style="display:flex;gap:8px;"><button class="btn-sec" onclick="openTraspaso()" style="border-color:var(--soberbia);color:var(--soberbia);">🔄 Traspaso</button><button class="btn-sec" onclick="loadInv()">↻</button></div></div>
       <div class="card">
         <div class="ct">📦 Stock por Usuario y Estado</div>
         <div class="tw">
@@ -752,6 +802,22 @@ function calcUnit(){
     Stock disponible: <strong style="color:${stockOk?'var(--success)':'var(--danger)'}">${inv.stock_disponible} uds</strong>
     ${!stockOk?'<br><span style="color:var(--danger)">⚠️ STOCK INSUFICIENTE</span>':''}`;
 }
+function mostrarStockDisponible(){
+  const prodId=document.getElementById('v-prod').value;
+  const wrap=document.getElementById('stock-disp-wrap');
+  if(!prodId){wrap.style.display='none';return;}
+  const inv=invCache[prodId]||{stock_disponible:0,stock_reservado:0};
+  document.getElementById('stock-disp-num').textContent=inv.stock_disponible;
+  const resEl=document.getElementById('stock-reservado-num');
+  if(inv.stock_reservado>0){
+    resEl.textContent=`(${inv.stock_reservado} reservados)`;
+  } else {
+    resEl.textContent='';
+  }
+  document.getElementById('stock-disp-num').style.color=inv.stock_disponible<=0?'var(--danger)':inv.stock_disponible<=8?'var(--warn)':'var(--accent)';
+  wrap.style.display='block';
+}
+
 function calcPack(){
   const selects=document.querySelectorAll('#pack-items select');
   const selIds=Array.from(selects).map(s=>s.value).filter(v=>v);
@@ -1264,6 +1330,8 @@ async function loadDash(){
     document.getElementById('s4').textContent=nM>0?pct(mS/nM):'0%';
     const saldo=await getSaldo();
     document.getElementById('s3').textContent=fmt(saldo);
+    // Refresh stock display if product selected
+    mostrarStockDisponible();
   }catch(e){console.error(e);}
 }
 
@@ -1432,6 +1500,111 @@ function setupRealtime(){
 }
 
 // ══ PWA ═══════════════════════════════════════════════
+// ══ TRASPASO ENTRE USUARIOS ══════════════════════════
+function openTraspaso(){
+  // Populate product dropdown
+  const sel=document.getElementById('tr-prod');
+  sel.innerHTML='<option value="">— Seleccionar —</option>';
+  CAT.forEach(p=>sel.innerHTML+=`<option value="${p.id}">[${p.id}] ${p.nombre}</option>`);
+  // Set default destino different from origen
+  document.getElementById('tr-origen').value=currentRole;
+  const usuarios=['AR','JG','MS','FY'];
+  const otroUsuario=usuarios.find(u=>u!==currentRole)||'AR';
+  document.getElementById('tr-destino').value=otroUsuario;
+  document.getElementById('tr-cant').value='';
+  document.getElementById('tr-info').style.display='none';
+  document.getElementById('tr-alert').style.display='none';
+  document.getElementById('modal-traspaso').style.display='flex';
+}
+
+function closeTraspaso(){
+  document.getElementById('modal-traspaso').style.display='none';
+}
+
+function updateTraspasoInfo(){
+  const prodId=document.getElementById('tr-prod').value;
+  const origen=document.getElementById('tr-origen').value;
+  const cant=parseInt(document.getElementById('tr-cant').value)||0;
+  const info=document.getElementById('tr-info');
+  if(!prodId){info.style.display='none';return;}
+  const inv=invCache[prodId]||{stock_usuarios:{}};
+  const stockOrigen=(inv.stock_usuarios&&inv.stock_usuarios[origen])||0;
+  info.style.display='block';
+  info.innerHTML=`Stock de ${origen}: <strong style="color:${stockOrigen>0?'var(--success)':'var(--danger)'}">${stockOrigen} uds</strong>
+    ${cant>0?`<br>Tras traspaso: ${origen}: <strong>${stockOrigen-cant}</strong> → Destino: <strong>+${cant}</strong>`:''}
+    ${cant>stockOrigen?'<br><span style="color:var(--danger)">⚠️ Stock insuficiente en origen</span>':''}`;
+}
+
+async function registrarTraspaso(){
+  const prodId=document.getElementById('tr-prod').value;
+  const origen=document.getElementById('tr-origen').value;
+  const destino=document.getElementById('tr-destino').value;
+  const cant=parseInt(document.getElementById('tr-cant').value)||0;
+
+  if(!prodId||!cant){showAlert('tr-alert','err','⚠️ Completa todos los campos.');return;}
+  if(origen===destino){showAlert('tr-alert','err','⚠️ Origen y destino deben ser diferentes.');return;}
+
+  const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,stock_reservado:0,stock_usuarios:{},pmp_actual:0};
+  const stockOrigen=(inv.stock_usuarios&&inv.stock_usuarios[origen])||0;
+  if(cant>stockOrigen){showAlert('tr-alert','err',`❌ Stock insuficiente. ${origen} tiene ${stockOrigen} uds.`);return;}
+
+  const btn=document.getElementById('btn-traspaso');
+  btn.disabled=true;btn.textContent='PROCESANDO...';
+
+  try{
+    const prod=gp(prodId);
+    const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',prodId);
+    const cur=curRows&&curRows.length?curRows[0]:null;
+    if(!cur)throw new Error('Producto no encontrado en inventario');
+
+    const stockUsuarios={...(cur.stock_usuarios||{})};
+    stockUsuarios[origen]=(stockUsuarios[origen]||0)-cant;
+    stockUsuarios[destino]=(stockUsuarios[destino]||0)+cant;
+
+    await db.from('inventario').update({
+      stock_usuarios:stockUsuarios,
+      updated_at:new Date().toISOString()
+    }).eq('producto_id',prodId);
+
+    // Registrar en movimientos
+    await db.from('movimientos').insert([
+      {
+        producto_id:prodId,producto_nombre:prod.nombre,
+        tipo:'Salida',cantidad:cant,
+        stock_anterior:stockOrigen,stock_resultante:stockOrigen-cant,
+        stock_reservado_anterior:0,stock_reservado_resultante:0,
+        referencia_tipo:'traspaso',venta_id:null,
+        usuario:currentRole,fecha:new Date().toISOString()
+      },
+      {
+        producto_id:prodId,producto_nombre:prod.nombre,
+        tipo:'Entrada',cantidad:cant,
+        stock_anterior:(cur.stock_usuarios&&cur.stock_usuarios[destino])||0,
+        stock_resultante:((cur.stock_usuarios&&cur.stock_usuarios[destino])||0)+cant,
+        stock_reservado_anterior:0,stock_reservado_resultante:0,
+        referencia_tipo:`traspaso ${origen}→${destino}`,venta_id:null,
+        usuario:currentRole,fecha:new Date().toISOString()
+      }
+    ]);
+
+    // Update local cache
+    if(invCache[prodId]){
+      invCache[prodId].stock_usuarios=stockUsuarios;
+    }
+
+    closeTraspaso();
+    showModal('🔄 Traspaso Realizado',
+      `${cant} uds de ${prod.nombre} transferidas de ${origen} a ${destino}.`,
+      '🔄');
+    loadInv();
+
+  }catch(e){
+    showAlert('tr-alert','err','❌ Error: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='CONFIRMAR TRASPASO';
+  }
+}
+
 // ══ EXPORTAR CSV ══════════════════════════════════════
 async function exportarCSV(tabla) {
   try {
