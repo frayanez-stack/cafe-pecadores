@@ -591,9 +591,22 @@ window.addEventListener('DOMContentLoaded',()=>{
   ['v-fecha','p-fecha','c-fecha','g-fecha'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=d;});
   populateDropdowns();renderCatalogo();buildPackItems();
 
+  // Restore session if exists
+  const savedSession = localStorage.getItem('pec_session');
+  if(savedSession){
+    currentRole = savedSession;
+  }
+
   setTimeout(()=>{
     document.getElementById('splash').classList.add('fade');
-    setTimeout(()=>{document.getElementById('splash').style.display='none';document.getElementById('login-screen').style.display='flex';},600);
+    setTimeout(()=>{
+      document.getElementById('splash').style.display='none';
+      if(currentRole){
+        enterApp();
+      } else {
+        document.getElementById('login-screen').style.display='flex';
+      }
+    },600);
   },2000);
 
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;document.getElementById('install-banner').style.display='flex';});
@@ -650,8 +663,9 @@ function doLogin(){
   if(getPass()[role]!==pass){err.textContent='Contraseña incorrecta.';err.style.display='block';return;}
   err.style.display='none';currentRole=role;enterApp();
 }
-function doLogout(){currentRole=null;document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('lp').value='';}
+function doLogout(){currentRole=null;localStorage.removeItem('pec_session');document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('lp').value='';}
 function enterApp(){
+  localStorage.setItem('pec_session', currentRole);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   const pill=document.getElementById('rpill');pill.textContent=currentRole;pill.className='role-pill pill-'+currentRole;
@@ -835,10 +849,13 @@ async function registrarVentaUnit(){
     showModal(estadoPago==='PAGADO'?'✅ Venta Registrada':'🔒 Reserva Registrada',msg,estadoPago==='PAGADO'?'✅':'🔒',ventaId);
 
     // Reset
+    document.getElementById('v-fecha').value=today();
+    document.getElementById('v-canal').value='Instagram';
     document.getElementById('v-prod').value='';
     document.getElementById('v-cant').value='';
     document.getElementById('v-precio').value='';
     document.getElementById('v-cliente').value='';
+    document.getElementById('v-pago').value='Efectivo';
     document.getElementById('v-prev').style.display='none';
     loadVentas();loadReservados();
   }catch(e){showAlert('va','err','❌ Error: '+(e.message||JSON.stringify(e)));}
@@ -913,7 +930,10 @@ async function registrarVentaPack(){
       estadoPago==='PAGADO'?'✅':'🔒',ventaId);
 
     document.querySelectorAll('#pack-items select').forEach(s=>s.value='');
+    document.getElementById('p-fecha').value=today();
+    document.getElementById('p-canal').value='Instagram';
     document.getElementById('p-cliente').value='';
+    document.getElementById('p-pago').value='Efectivo';
     document.getElementById('p-prev').innerHTML='Selecciona 4 variedades para completar el pack.';
     loadVentas();loadReservados();
   }catch(e){showAlert('va','err','❌ Error: '+(e.message||JSON.stringify(e)));}
@@ -959,6 +979,8 @@ async function actualizarInvVenta(prodId,prod,inv,cant,estado,_,fecha,refId,vent
 // ══ CONFIRMAR PAGO DE RESERVA ═════════════════════════
 async function confirmarPago(){
   if(!ventaPendientePago)return;
+  const btnConf = document.querySelector('#modal-pago button:last-child');
+  if(btnConf){ btnConf.disabled=true; btnConf.textContent='PROCESANDO...'; }
   const v=ventaPendientePago;
   const pago=document.getElementById('mp-pago').value;
 
@@ -1012,6 +1034,8 @@ async function confirmarPago(){
         0,0,0,0,v.venta_id,currentRole
       );
     }
+    const btnConf2=document.querySelector('#modal-pago button:last-child');
+    if(btnConf2){btnConf2.disabled=false;btnConf2.textContent='CONFIRMAR PAGO';}
     closeModalPago();
     showModal('✅ Pago Confirmado',`${v.venta_id} marcado como pagado.\nTotal: ${fmt(v.total_venta)} | ${pago}`,'💳',v.venta_id);
     loadVentas();loadReservados();loadDash();
@@ -1077,6 +1101,8 @@ async function registrarCompra(){
     await sheetsAppendCompra(fecha,prov,prod.nombre,cant,costoNeto,ivaT,pmpN,stockN,costoConIva,nota,usuario||currentRole);
     await sheetsAppendMovimiento(new Date().toISOString(),prod.nombre,'Entrada',cant,inv.stock_disponible,dispN,base.stock_reservado||0,base.stock_reservado||0,null,currentRole);
     showModal('✅ Compra Registrada',`${cant} uds ingresadas (${usuario}).\nStock disponible: ${dispN} uds | PMP neto: ${fmt(pmpN)}`,'📦');
+    document.getElementById('c-fecha').value=today();
+    document.getElementById('c-prov').value='';
     document.getElementById('c-prod').value='';
     document.getElementById('c-cant').value='';
     document.getElementById('c-costo').value='';
