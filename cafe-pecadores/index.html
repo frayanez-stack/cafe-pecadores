@@ -1285,7 +1285,7 @@ async function loadDash(){
       alertsDiv.innerHTML='';
     } else {
       tbody.innerHTML=inv.map(r=>{
-        invCache[r.producto_id]={stock_total:r.stock_total,stock_disponible:r.stock_disponible,stock_reservado:r.stock_reservado,pmp_actual:r.pmp_actual};
+        invCache[r.producto_id]={stock_total:r.stock_total,stock_disponible:r.stock_disponible,stock_reservado:r.stock_reservado,pmp_actual:r.pmp_actual,stock_usuarios:r.stock_usuarios||{}};
         const umbral=umbralesCache[r.producto_id]||8;
         const margen=PRECIO_UNIT>0&&r.pmp_actual>0?((PRECIO_UNIT/(1+IVA)-r.pmp_actual)/(PRECIO_UNIT/(1+IVA))*100):0;
         const crit=r.stock_disponible===0,warn=r.stock_disponible>0&&r.stock_disponible<=umbral;
@@ -1432,10 +1432,10 @@ async function loadInv(){
         <td class="tm">${r.stock_total}</td>
         <td class="tm tg2">${r.stock_disponible}</td>
         <td class="tm tres">${r.stock_reservado||0}</td>
-        <td class="tm td">${r.stock_AR||0}</td>
-        <td class="tm td">${r.stock_JG||0}</td>
-        <td class="tm td">${r.stock_MS||0}</td>
-        <td class="tm td">${r.stock_FY||0}</td>
+        <td class="tm td">${(r.stock_usuarios&&r.stock_usuarios['AR'])||0}</td>
+        <td class="tm td">${(r.stock_usuarios&&r.stock_usuarios['JG'])||0}</td>
+        <td class="tm td">${(r.stock_usuarios&&r.stock_usuarios['MS'])||0}</td>
+        <td class="tm td">${(r.stock_usuarios&&r.stock_usuarios['FY'])||0}</td>
         <td class="td" style="font-size:11px;">≤${umbral}</td>
         <td>${badge}</td>
       </tr>`;
