@@ -12,6 +12,7 @@
 <title>Café Pecadores — ERP</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 :root {
   --bg:#f5efe6; --bg2:#faf5ee; --white:#ffffff;
@@ -661,6 +662,12 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
 // ══ SUPABASE ══════════════════════════════════════════
 const SURL='https://bcdkzbrptadqvedqmstk.supabase.co';
 const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjZGt6YnJwdGFkcXZlZHFtc3RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4ODk5MDksImV4cCI6MjA5MzQ2NTkwOX0.0RJPBcsLOG79Pzq3ne-AXEP5gm-1BXDJzziEZnDJa3M';
+const EMAILJS_SERVICE  = 'service_t6yhem2';
+const EMAILJS_TEMPLATE = 'template_3qunlve';
+const EMAILJS_KEY      = 'L2hSmva5yVYCYlgDS';
+// Emails que reciben notificaciones — agrega los que necesites
+const NOTIFY_EMAILS    = ['frayanez@gmail.com'];
+
 const SHEETS_URL='https://script.google.com/macros/s/AKfycbwVds4mR1lStdMgdaE8Ttd8A89p4VDLqZWqNn6y31DTAwqNf7DqQsjNEZBU2yhwb0_H/exec';
 const db=supabase.createClient(SURL,SKEY);
 
@@ -727,6 +734,7 @@ function closeModalPago(){document.getElementById('modal-pago').style.display='n
 
 // ══ INIT ══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
+  emailjs.init({publicKey: EMAILJS_KEY});
   const d=today();
   ['v-fecha','p-fecha','c-fecha','g-fecha'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=d;});
   populateDropdowns();renderCatalogo();buildPackItems();
@@ -1003,6 +1011,13 @@ async function registrarVentaUnit(){
       :`${cant} ud RESERVADAS para ${cliente}. Se descontarán al confirmar pago.`;
 
     showModal(estadoPago==='PAGADO'?'✅ Venta Registrada':'🔒 Reserva Registrada',msg,estadoPago==='PAGADO'?'✅':'🔒',ventaId);
+    // Notificación email
+    await sendEmailNotif(
+      estadoPago==='PAGADO'?'Venta':'Reserva',
+      prod.nombre, cant, currentRole,
+      fecha, fmt(total),
+      `${invCache[prodId]?.stock_disponible??stockDisponibleN} uds disponibles`
+    );
 
     // Reset
     document.getElementById('v-fecha').value=today();
@@ -1084,6 +1099,15 @@ async function registrarVentaPack(){
     showModal(estadoPago==='PAGADO'?'✅ Pack Registrado':'🔒 Pack Reservado',
       `Pack x4 ${estadoPago==='PAGADO'?'vendido':'reservado'} para ${cliente}. Total: ${fmt(PRECIO_PACK)}`,
       estadoPago==='PAGADO'?'✅':'🔒',ventaId);
+    // Notificación email — calcular stock total restante del pack
+    const stockResumenPack = Object.entries(grouped)
+      .map(([id,q])=>`${gp(id)?.variedad||id}: ${(invCache[id]?.stock_disponible??0)} uds`)
+      .join(' | ');
+    await sendEmailNotif(
+      estadoPago==='PAGADO'?'Venta Pack x4':'Reserva Pack x4',
+      'Pack x4 — Mixto', 4, currentRole,
+      fecha, fmt(PRECIO_PACK), stockResumenPack
+    );
 
     document.querySelectorAll('#pack-items select').forEach(s=>s.value='');
     document.getElementById('p-fecha').value=today();
@@ -1208,6 +1232,15 @@ async function confirmarPago(){
     if(btnConf2){btnConf2.disabled=false;btnConf2.textContent='CONFIRMAR PAGO';}
     closeModalPago();
     showModal('✅ Pago Confirmado',`${v.venta_id} marcado como pagado.\nTotal: ${fmt(v.total_venta)} | ${pago}`,'💳',v.venta_id);
+    // Notificación email pago reserva
+    const stockPagoResumen = items.map(item=>
+      `${item.producto_nombre}: ${invCache[item.producto_id]?.stock_disponible??0} uds`
+    ).join(' | ');
+    await sendEmailNotif(
+      'Pago de Reserva', v.producto_nombre, v.cantidad, currentRole,
+      today(), fmt(v.total_venta),
+      `${v.venta_id} — ${pago} | Stock: ${stockPagoResumen}`
+    );
     loadVentas();loadReservados();loadDash();
   }catch(e){closeModalPago();toast('❌ Error: '+e.message);}
 }
@@ -1270,6 +1303,12 @@ async function registrarCompra(){
     await sheetsAppendCompra(fecha,prov,prod.nombre,cant,costoNeto,ivaTotal,pmpN,stockN,costoConIva,nota,usuario||currentRole);
     await sheetsAppendMovimiento(new Date().toISOString(),prod.nombre,'Entrada',cant,inv.stock_disponible,dispN,base.stock_reservado||0,base.stock_reservado||0,null,currentRole);
     showModal('✅ Compra Registrada',`${cant} uds ingresadas (${usuario}).\nStock disponible: ${dispN} uds | PMP neto: ${fmt(pmpN)}`,'📦');
+    // Notificación email
+    await sendEmailNotif(
+      'Compra', prod.nombre, cant, usuario||currentRole,
+      fecha, fmt(cant*costoNeto),
+      `${dispN} uds disponibles | PMP: ${fmt(pmpN)}`
+    );
     document.getElementById('c-fecha').value=today();
     document.getElementById('c-prov').value='';
     document.getElementById('c-prod').value='';
@@ -1949,6 +1988,21 @@ Costo: ${fmt(costoConsumo)} (PMP: ${fmt(inv.pmp_actual)})`,
     showAlert('con-alert','err','❌ Error: '+e.message);
   }finally{
     btn.disabled=false;btn.textContent='REGISTRAR CONSUMO';
+  }
+}
+
+// ══ NOTIFICACIONES EMAIL ═════════════════════════════
+async function sendEmailNotif(tipo, producto, cantidad, usuario, fecha, monto, stock){
+  try{
+    for(const email of NOTIFY_EMAILS){
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        tipo, producto, cantidad, usuario,
+        fecha, monto, stock,
+        to_email: email
+      });
+    }
+  }catch(e){
+    console.warn('Email notif failed (non-critical):', e);
   }
 }
 
