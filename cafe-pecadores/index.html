@@ -290,6 +290,46 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
   </div>
 </div>
 
+<!-- CONSUMO INTERNO MODAL -->
+<div id="modal-consumo" style="position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(45,26,8,.45);backdrop-filter:blur(4px);padding:20px;">
+  <div style="background:var(--white);border-radius:var(--r);padding:28px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);border-top:4px solid var(--danger);animation:up .3s ease;">
+    <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">📉 Consumo Interno</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Rebaje de stock por uso interno — se valoriza a PMP</div>
+    <div id="con-alert" class="alert"></div>
+    <div class="fr">
+      <div class="fg ff">
+        <label class="fl">Producto</label>
+        <select class="fi" id="con-prod" onchange="updateConsumoInfo()">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Cantidad</label>
+        <input type="number" class="fi" id="con-cant" min="1" placeholder="0" oninput="updateConsumoInfo()">
+      </div>
+      <div class="fg">
+        <label class="fl">Motivo</label>
+        <select class="fi" id="con-motivo">
+          <option value="Degustación">Degustación</option>
+          <option value="Muestra">Muestra</option>
+          <option value="Merma">Merma</option>
+          <option value="Uso interno">Uso interno</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="fg ff">
+        <label class="fl">Observación (opcional)</label>
+        <input type="text" class="fi" id="con-obs" placeholder="Detalle...">
+      </div>
+    </div>
+    <div id="con-info" class="prev-box" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button onclick="closeConsumo()" class="btn-sec" style="flex:1;">CANCELAR</button>
+      <button id="btn-consumo" onclick="registrarConsumo()" style="flex:1;background:linear-gradient(135deg,var(--danger),#e74c3c);border:none;border-radius:var(--r2);color:var(--white);font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px;cursor:pointer;">REGISTRAR CONSUMO</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
@@ -478,7 +518,7 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
 
     <!-- INVENTARIO -->
     <div class="page" id="page-inv">
-      <div class="ph"><div><div class="pt">Inventario</div><div class="ps">Stock consolidado</div></div><div style="display:flex;gap:8px;"><button class="btn-sec" onclick="openTraspaso()" style="border-color:var(--soberbia);color:var(--soberbia);">🔄 Traspaso</button><button class="btn-sec" onclick="loadInv()">↻</button></div></div>
+      <div class="ph"><div><div class="pt">Inventario</div><div class="ps">Stock consolidado</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn-sec" onclick="openConsumo()" style="border-color:var(--danger);color:var(--danger);">📉 Consumo</button><button class="btn-sec" onclick="openTraspaso()" style="border-color:var(--soberbia);color:var(--soberbia);">🔄 Traspaso</button><button class="btn-sec" onclick="loadInv()">↻</button></div></div>
       <div class="card">
         <div class="ct">📦 Stock por Usuario y Estado</div>
         <div class="tw">
@@ -944,7 +984,9 @@ async function registrarVentaPack(){
     if(q>inv.stock_disponible){showAlert('va','err',`❌ Stock insuficiente de ${gp(id)?.nombre}. Disponible: ${inv.stock_disponible} uds.`);return;}
   }
   const totalNeto=PRECIO_PACK/(1+IVA),ivaMonto=PRECIO_PACK-totalNeto;
+  // costoTotal = suma de (pmp × cantidad) por cada variedad del pack
   const costoTotal=selIds.reduce((s,id)=>{const inv=invCache[id]||{pmp_actual:0};return s+inv.pmp_actual;},0);
+  // Nota: selIds tiene exactamente 4 elementos (1 por unidad), así que la suma es correcta (1 × pmp cada una)
   const margen=totalNeto-costoTotal;
   const margenPct=totalNeto>0?(margen/totalNeto*100):0;
   const ventaId=await generarVentaId();
@@ -984,7 +1026,7 @@ async function registrarVentaPack(){
       await sheetsAppendMovimiento(
         new Date().toISOString(),gp(id)?.nombre,
         estadoPago==='PAGADO'?'Salida':'Reserva',q,
-        invPack.stock_disponible+q,invPack.stock_disponible,
+        invPack.stock_disponible,invPack.stock_disponible-q,
         invPack.stock_reservado||0,
         estadoPago==='RESERVADO'?(invPack.stock_reservado||0)+q:(invPack.stock_reservado||0),
         ventaId,currentRole
@@ -1022,10 +1064,17 @@ async function actualizarInvVenta(prodId,prod,inv,cant,estado,_,fecha,refId,vent
     nuevoRes=base.stock_reservado+cant;
   }
 
+  // Descontar del stock del usuario que vendió (solo si PAGADO)
+  const stockUsuariosUpd = typeof base.stock_usuarios === 'object' && base.stock_usuarios !== null
+    ? {...base.stock_usuarios} : {};
+  if(estado==='PAGADO' && currentRole){
+    stockUsuariosUpd[currentRole] = Math.max(0, (stockUsuariosUpd[currentRole]||0) - cant);
+  }
+
   const upd={
     producto_id:prodId,nombre:prod.nombre,variedad:prod.variedad,formato:prod.formato,
     stock_total:nuevoTotal,stock_disponible:nuevoDisp,stock_reservado:nuevoRes,
-    stock_usuarios:base.stock_usuarios||{},
+    stock_usuarios:stockUsuariosUpd,
     pmp_actual:base.pmp_actual,ultima_venta:fecha,updated_at:new Date().toISOString()
   };
   await db.from('inventario').upsert(upd,{onConflict:'producto_id'});
@@ -1039,7 +1088,7 @@ async function actualizarInvVenta(prodId,prod,inv,cant,estado,_,fecha,refId,vent
     venta_id:ventaId,usuario:currentRole,fecha:new Date().toISOString()
   });
 
-  invCache[prodId]={stock_total:nuevoTotal,stock_disponible:nuevoDisp,stock_reservado:nuevoRes,pmp_actual:base.pmp_actual};
+  invCache[prodId]={stock_total:nuevoTotal,stock_disponible:nuevoDisp,stock_reservado:nuevoRes,pmp_actual:base.pmp_actual,stock_usuarios:stockUsuariosUpd};
 }
 
 // ══ CONFIRMAR PAGO DE RESERVA ═════════════════════════
@@ -1070,8 +1119,15 @@ async function confirmarPago(){
       if(!cur)continue;
       const nuevoTotal=cur.stock_total-item.cantidad;
       const nuevoRes=Math.max(0,cur.stock_reservado-item.cantidad);
+      // Descontar del usuario que registró la venta original
+      const stockUsuariosPago = typeof cur.stock_usuarios === 'object' && cur.stock_usuarios !== null
+        ? {...cur.stock_usuarios} : {};
+      const vendedorOriginal = v.usuario || currentRole;
+      stockUsuariosPago[vendedorOriginal] = Math.max(0,(stockUsuariosPago[vendedorOriginal]||0)-item.cantidad);
       await db.from('inventario').update({
-        stock_total:nuevoTotal,stock_reservado:nuevoRes,updated_at:new Date().toISOString()
+        stock_total:nuevoTotal,stock_reservado:nuevoRes,
+        stock_usuarios:stockUsuariosPago,
+        updated_at:new Date().toISOString()
       }).eq('producto_id',item.producto_id);
       await db.from('movimientos').insert({
         producto_id:item.producto_id,producto_nombre:item.producto_nombre,
@@ -1084,6 +1140,7 @@ async function confirmarPago(){
       if(invCache[item.producto_id]){
         invCache[item.producto_id].stock_total=nuevoTotal;
         invCache[item.producto_id].stock_reservado=nuevoRes;
+        invCache[item.producto_id].stock_usuarios=stockUsuariosPago;
       }
     }
 
@@ -1095,9 +1152,12 @@ async function confirmarPago(){
     await sheetsAppendCaja(today(),'Ingreso','Pago Reserva',v.venta_id,`Pago de ${v.venta_id} — ${v.cliente}`,v.total_venta,pago,saldoPago,currentRole);
     // Sync movimientos confirmacion pago a Sheets
     for(const item of items){
+      const invItem=invCache[item.producto_id]||{stock_disponible:0,stock_reservado:0};
       await sheetsAppendMovimiento(
         new Date().toISOString(),item.producto_nombre,'Salida',item.cantidad,
-        0,0,0,0,v.venta_id,currentRole
+        invItem.stock_disponible+item.cantidad, invItem.stock_disponible,
+        invItem.stock_reservado+item.cantidad, invItem.stock_reservado,
+        v.venta_id,currentRole
       );
     }
     const btnConf2=document.querySelector('#modal-pago button:last-child');
@@ -1163,8 +1223,7 @@ async function registrarCompra(){
 
     invCache[prodId]={stock_total:stockN,stock_disponible:dispN,stock_reservado:base.stock_reservado||0,pmp_actual:pmpN,stock_usuarios:stockUsuarios};
     // Sync a Sheets
-    const ivaT = costoConIva ? (cant * (costoI - costoNeto)) : 0;
-    await sheetsAppendCompra(fecha,prov,prod.nombre,cant,costoNeto,ivaT,pmpN,stockN,costoConIva,nota,usuario||currentRole);
+    await sheetsAppendCompra(fecha,prov,prod.nombre,cant,costoNeto,ivaTotal,pmpN,stockN,costoConIva,nota,usuario||currentRole);
     await sheetsAppendMovimiento(new Date().toISOString(),prod.nombre,'Entrada',cant,inv.stock_disponible,dispN,base.stock_reservado||0,base.stock_reservado||0,null,currentRole);
     showModal('✅ Compra Registrada',`${cant} uds ingresadas (${usuario}).\nStock disponible: ${dispN} uds | PMP neto: ${fmt(pmpN)}`,'📦');
     document.getElementById('c-fecha').value=today();
@@ -1287,7 +1346,8 @@ async function loadDash(){
       tbody.innerHTML=inv.map(r=>{
         invCache[r.producto_id]={stock_total:r.stock_total,stock_disponible:r.stock_disponible,stock_reservado:r.stock_reservado,pmp_actual:r.pmp_actual,stock_usuarios:r.stock_usuarios||{}};
         const umbral=umbralesCache[r.producto_id]||8;
-        const margen=PRECIO_UNIT>0&&r.pmp_actual>0?((PRECIO_UNIT/(1+IVA)-r.pmp_actual)/(PRECIO_UNIT/(1+IVA))*100):0;
+        const precioNetoUnit=PRECIO_UNIT/(1+IVA);
+        const margen=precioNetoUnit>0&&r.pmp_actual>0?((precioNetoUnit-r.pmp_actual)/precioNetoUnit*100):0;
         const crit=r.stock_disponible===0,warn=r.stock_disponible>0&&r.stock_disponible<=umbral;
         const badge=crit?'<span class="badge b-crit">SIN STOCK</span>':warn?'<span class="badge b-warn">REABASTECER</span>':'<span class="badge b-ok">OK</span>';
         if(crit||warn)alerts.push({nombre:r.nombre,stock:r.stock_disponible,umbral});
@@ -1602,6 +1662,117 @@ async function registrarTraspaso(){
     showAlert('tr-alert','err','❌ Error: '+e.message);
   }finally{
     btn.disabled=false;btn.textContent='CONFIRMAR TRASPASO';
+  }
+}
+
+// ══ CONSUMO INTERNO ══════════════════════════════════
+function openConsumo(){
+  const sel=document.getElementById('con-prod');
+  sel.innerHTML='<option value="">— Seleccionar —</option>';
+  CAT.forEach(p=>sel.innerHTML+=`<option value="${p.id}">[${p.id}] ${p.nombre}</option>`);
+  document.getElementById('con-cant').value='';
+  document.getElementById('con-obs').value='';
+  document.getElementById('con-info').style.display='none';
+  document.getElementById('con-alert').style.display='none';
+  document.getElementById('modal-consumo').style.display='flex';
+}
+
+function closeConsumo(){
+  document.getElementById('modal-consumo').style.display='none';
+}
+
+function updateConsumoInfo(){
+  const prodId=document.getElementById('con-prod').value;
+  const cant=parseInt(document.getElementById('con-cant').value)||0;
+  const info=document.getElementById('con-info');
+  if(!prodId){info.style.display='none';return;}
+  const inv=invCache[prodId]||{stock_disponible:0,pmp_actual:0};
+  const costoTotal=cant*inv.pmp_actual;
+  info.style.display='block';
+  info.innerHTML=`Stock disponible: <strong style="color:${inv.stock_disponible>0?'var(--success)':'var(--danger)'}">${inv.stock_disponible} uds</strong><br>
+    PMP actual: <strong>${fmt(inv.pmp_actual)}</strong><br>
+    ${cant>0?`Costo del consumo: <strong style="color:var(--danger)">${fmt(costoTotal)}</strong>`:''}
+    ${cant>inv.stock_disponible?'<br><span style="color:var(--danger)">⚠️ Stock insuficiente</span>':''}`;
+}
+
+async function registrarConsumo(){
+  const prodId=document.getElementById('con-prod').value;
+  const cant=parseInt(document.getElementById('con-cant').value)||0;
+  const motivo=document.getElementById('con-motivo').value;
+  const obs=document.getElementById('con-obs').value.trim();
+
+  if(!prodId||!cant){showAlert('con-alert','err','⚠️ Selecciona producto y cantidad.');return;}
+
+  const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,stock_reservado:0,pmp_actual:0,stock_usuarios:{}};
+  if(cant>inv.stock_disponible){showAlert('con-alert','err',`❌ Stock insuficiente. Disponible: ${inv.stock_disponible} uds.`);return;}
+
+  const btn=document.getElementById('btn-consumo');
+  btn.disabled=true;btn.textContent='PROCESANDO...';
+
+  try{
+    const prod=gp(prodId);
+    const costoConsumo=cant*inv.pmp_actual;
+    const stockNuevo=inv.stock_total-cant;
+    const dispNuevo=inv.stock_disponible-cant;
+
+    // Descontar del stock del usuario que registra
+    const stockUsuariosUpd=typeof inv.stock_usuarios==='object'&&inv.stock_usuarios!==null
+      ?{...inv.stock_usuarios}:{};
+    stockUsuariosUpd[currentRole]=Math.max(0,(stockUsuariosUpd[currentRole]||0)-cant);
+
+    // Actualizar inventario
+    const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',prodId);
+    const cur=curRows&&curRows.length?curRows[0]:null;
+    if(!cur)throw new Error('Producto no encontrado en inventario');
+
+    await db.from('inventario').update({
+      stock_total:stockNuevo,
+      stock_disponible:dispNuevo,
+      stock_usuarios:stockUsuariosUpd,
+      updated_at:new Date().toISOString()
+    }).eq('producto_id',prodId);
+
+    // Registrar en movimientos
+    await db.from('movimientos').insert({
+      producto_id:prodId,producto_nombre:prod.nombre,
+      tipo:'Consumo',cantidad:cant,
+      stock_anterior:inv.stock_disponible,stock_resultante:dispNuevo,
+      stock_reservado_anterior:inv.stock_reservado||0,stock_reservado_resultante:inv.stock_reservado||0,
+      referencia_tipo:motivo+(obs?' — '+obs:''),venta_id:null,
+      usuario:currentRole,fecha:new Date().toISOString()
+    });
+
+    // Registrar en caja como egreso a PMP
+    const saldoCon=await insertCaja(
+      today(),'Egreso','Consumo Interno',
+      `${motivo}: ${prod.nombre} x${cant}${obs?' — '+obs:''}`,
+      costoConsumo,null,null
+    );
+    await sheetsAppendCaja(
+      today(),'Egreso','Consumo Interno',null,
+      `${motivo}: ${prod.nombre} x${cant}`,
+      costoConsumo,null,saldoCon,currentRole
+    );
+    await sheetsAppendMovimiento(
+      new Date().toISOString(),prod.nombre,'Consumo',cant,
+      inv.stock_disponible,dispNuevo,inv.stock_reservado||0,inv.stock_reservado||0,
+      null,currentRole
+    );
+
+    // Actualizar cache
+    invCache[prodId]={...inv,stock_total:stockNuevo,stock_disponible:dispNuevo,stock_usuarios:stockUsuariosUpd};
+
+    closeConsumo();
+    showModal('📉 Consumo Registrado',
+      `${cant} uds de ${prod.nombre} descontadas por ${motivo}.
+Costo: ${fmt(costoConsumo)} (PMP: ${fmt(inv.pmp_actual)})`,
+      '📉');
+    loadInv();
+
+  }catch(e){
+    showAlert('con-alert','err','❌ Error: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='REGISTRAR CONSUMO';
   }
 }
 
