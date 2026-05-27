@@ -330,6 +330,56 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
   </div>
 </div>
 
+<!-- APERTURA DE STOCK MODAL -->
+<div id="modal-apertura" style="position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(45,26,8,.45);backdrop-filter:blur(4px);padding:20px;">
+  <div style="background:var(--white);border-radius:var(--r);padding:28px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);border-top:4px solid var(--success);animation:up .3s ease;max-height:90vh;overflow-y:auto;">
+    <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">📋 Apertura de Stock</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Carga inicial de inventario — queda registrado en kardex como Apertura</div>
+    <div id="ap-alert" class="alert"></div>
+    <div class="fr">
+      <div class="fg ff">
+        <label class="fl">Producto</label>
+        <select class="fi" id="ap-prod" onchange="updateAperturaInfo()">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Asignar a Usuario</label>
+        <select class="fi" id="ap-usuario">
+          <option value="AR">A.R.</option>
+          <option value="JG">J.G.</option>
+          <option value="MS">M.S.</option>
+          <option value="FY">F.Y.</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Cantidad</label>
+        <input type="number" class="fi" id="ap-cant" min="1" placeholder="0" oninput="updateAperturaInfo()">
+      </div>
+      <div class="fg ff">
+        <label class="fl">Costo Unitario ($)</label>
+        <input type="number" class="fi" id="ap-costo" min="0" placeholder="Costo neto sin IVA" oninput="updateAperturaInfo()">
+      </div>
+      <div class="fg ff">
+        <label class="fl">¿Precio incluye IVA?</label>
+        <div class="tipo-toggle" style="margin-bottom:0;">
+          <button class="tipo-btn active" id="ap-iva-si" onclick="setAperturaIva(true)">SÍ incluye IVA</button>
+          <button class="tipo-btn" id="ap-iva-no" onclick="setAperturaIva(false)">NO incluye IVA</button>
+        </div>
+      </div>
+      <div class="fg ff">
+        <label class="fl">Observación (opcional)</label>
+        <input type="text" class="fi" id="ap-obs" placeholder="Ej: Stock inicial al 01/06/2026">
+      </div>
+    </div>
+    <div id="ap-info" class="prev-box" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button onclick="closeApertura()" class="btn-sec" style="flex:1;">CANCELAR</button>
+      <button id="btn-apertura" onclick="registrarApertura()" style="flex:1;background:linear-gradient(135deg,var(--success),#27ae60);border:none;border-radius:var(--r2);color:var(--white);font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px;cursor:pointer;">REGISTRAR APERTURA</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
@@ -518,7 +568,7 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
 
     <!-- INVENTARIO -->
     <div class="page" id="page-inv">
-      <div class="ph"><div><div class="pt">Inventario</div><div class="ps">Stock consolidado</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn-sec" onclick="openConsumo()" style="border-color:var(--danger);color:var(--danger);">📉 Consumo</button><button class="btn-sec" onclick="openTraspaso()" style="border-color:var(--soberbia);color:var(--soberbia);">🔄 Traspaso</button><button class="btn-sec" onclick="loadInv()">↻</button></div></div>
+      <div class="ph"><div><div class="pt">Inventario</div><div class="ps">Stock consolidado</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn-sec" onclick="openApertura()" style="border-color:var(--success);color:var(--success);">📋 Apertura</button><button class="btn-sec" onclick="openConsumo()" style="border-color:var(--danger);color:var(--danger);">📉 Consumo</button><button class="btn-sec" onclick="openTraspaso()" style="border-color:var(--soberbia);color:var(--soberbia);">🔄 Traspaso</button><button class="btn-sec" onclick="loadInv()">↻</button></div></div>
       <div class="card">
         <div class="ct">📦 Stock por Usuario y Estado</div>
         <div class="tw">
@@ -984,9 +1034,7 @@ async function registrarVentaPack(){
     if(q>inv.stock_disponible){showAlert('va','err',`❌ Stock insuficiente de ${gp(id)?.nombre}. Disponible: ${inv.stock_disponible} uds.`);return;}
   }
   const totalNeto=PRECIO_PACK/(1+IVA),ivaMonto=PRECIO_PACK-totalNeto;
-  // costoTotal = suma de (pmp × cantidad) por cada variedad del pack
   const costoTotal=selIds.reduce((s,id)=>{const inv=invCache[id]||{pmp_actual:0};return s+inv.pmp_actual;},0);
-  // Nota: selIds tiene exactamente 4 elementos (1 por unidad), así que la suma es correcta (1 × pmp cada una)
   const margen=totalNeto-costoTotal;
   const margenPct=totalNeto>0?(margen/totalNeto*100):0;
   const ventaId=await generarVentaId();
@@ -1026,7 +1074,7 @@ async function registrarVentaPack(){
       await sheetsAppendMovimiento(
         new Date().toISOString(),gp(id)?.nombre,
         estadoPago==='PAGADO'?'Salida':'Reserva',q,
-        invPack.stock_disponible,invPack.stock_disponible-q,
+        invPack.stock_disponible+q,invPack.stock_disponible,
         invPack.stock_reservado||0,
         estadoPago==='RESERVADO'?(invPack.stock_reservado||0)+q:(invPack.stock_reservado||0),
         ventaId,currentRole
@@ -1140,7 +1188,6 @@ async function confirmarPago(){
       if(invCache[item.producto_id]){
         invCache[item.producto_id].stock_total=nuevoTotal;
         invCache[item.producto_id].stock_reservado=nuevoRes;
-        invCache[item.producto_id].stock_usuarios=stockUsuariosPago;
       }
     }
 
@@ -1152,12 +1199,9 @@ async function confirmarPago(){
     await sheetsAppendCaja(today(),'Ingreso','Pago Reserva',v.venta_id,`Pago de ${v.venta_id} — ${v.cliente}`,v.total_venta,pago,saldoPago,currentRole);
     // Sync movimientos confirmacion pago a Sheets
     for(const item of items){
-      const invItem=invCache[item.producto_id]||{stock_disponible:0,stock_reservado:0};
       await sheetsAppendMovimiento(
         new Date().toISOString(),item.producto_nombre,'Salida',item.cantidad,
-        invItem.stock_disponible+item.cantidad, invItem.stock_disponible,
-        invItem.stock_reservado+item.cantidad, invItem.stock_reservado,
-        v.venta_id,currentRole
+        0,0,0,0,v.venta_id,currentRole
       );
     }
     const btnConf2=document.querySelector('#modal-pago button:last-child');
@@ -1346,8 +1390,7 @@ async function loadDash(){
       tbody.innerHTML=inv.map(r=>{
         invCache[r.producto_id]={stock_total:r.stock_total,stock_disponible:r.stock_disponible,stock_reservado:r.stock_reservado,pmp_actual:r.pmp_actual,stock_usuarios:r.stock_usuarios||{}};
         const umbral=umbralesCache[r.producto_id]||8;
-        const precioNetoUnit=PRECIO_UNIT/(1+IVA);
-        const margen=precioNetoUnit>0&&r.pmp_actual>0?((precioNetoUnit-r.pmp_actual)/precioNetoUnit*100):0;
+        const margen=PRECIO_UNIT>0&&r.pmp_actual>0?((PRECIO_UNIT/(1+IVA)-r.pmp_actual)/(PRECIO_UNIT/(1+IVA))*100):0;
         const crit=r.stock_disponible===0,warn=r.stock_disponible>0&&r.stock_disponible<=umbral;
         const badge=crit?'<span class="badge b-crit">SIN STOCK</span>':warn?'<span class="badge b-warn">REABASTECER</span>':'<span class="badge b-ok">OK</span>';
         if(crit||warn)alerts.push({nombre:r.nombre,stock:r.stock_disponible,umbral});
@@ -1662,6 +1705,139 @@ async function registrarTraspaso(){
     showAlert('tr-alert','err','❌ Error: '+e.message);
   }finally{
     btn.disabled=false;btn.textContent='CONFIRMAR TRASPASO';
+  }
+}
+
+// ══ APERTURA DE STOCK ════════════════════════════════
+let aperturaConIva = true;
+
+function setAperturaIva(val){
+  aperturaConIva=val;
+  document.getElementById('ap-iva-si').classList.toggle('active',val);
+  document.getElementById('ap-iva-no').classList.toggle('active',!val);
+  updateAperturaInfo();
+}
+
+function openApertura(){
+  const sel=document.getElementById('ap-prod');
+  sel.innerHTML='<option value="">— Seleccionar —</option>';
+  CAT.forEach(p=>sel.innerHTML+=`<option value="${p.id}">[${p.id}] ${p.nombre}</option>`);
+  document.getElementById('ap-cant').value='';
+  document.getElementById('ap-costo').value='';
+  document.getElementById('ap-obs').value='';
+  document.getElementById('ap-info').style.display='none';
+  document.getElementById('ap-alert').style.display='none';
+  document.getElementById('ap-usuario').value=currentRole;
+  aperturaConIva=true;
+  document.getElementById('ap-iva-si').classList.add('active');
+  document.getElementById('ap-iva-no').classList.remove('active');
+  document.getElementById('modal-apertura').style.display='flex';
+}
+
+function closeApertura(){
+  document.getElementById('modal-apertura').style.display='none';
+}
+
+function updateAperturaInfo(){
+  const prodId=document.getElementById('ap-prod').value;
+  const cant=parseInt(document.getElementById('ap-cant').value)||0;
+  const costoI=parseFloat(document.getElementById('ap-costo').value)||0;
+  const info=document.getElementById('ap-info');
+  if(!prodId||!costoI){info.style.display='none';return;}
+  const costoNeto=aperturaConIva?costoI/(1+IVA):costoI;
+  const ivaU=costoI-costoNeto;
+  const inv=invCache[prodId]||{stock_total:0,pmp_actual:0};
+  const pmpN=inv.stock_total>0?(inv.stock_total*inv.pmp_actual+cant*costoNeto)/(inv.stock_total+cant):costoNeto;
+  info.style.display='block';
+  info.innerHTML=`Costo neto: <strong>${fmt(costoNeto)}</strong>${aperturaConIva?` | IVA: ${fmt(ivaU)}`:''}
+    <br>Stock resultante: <strong>${inv.stock_total+cant} uds</strong>
+    <br>PMP resultante: <strong>${fmt(pmpN)}</strong>`;
+}
+
+async function registrarApertura(){
+  const prodId=document.getElementById('ap-prod').value;
+  const usuario=document.getElementById('ap-usuario').value;
+  const cant=parseInt(document.getElementById('ap-cant').value)||0;
+  const costoI=parseFloat(document.getElementById('ap-costo').value)||0;
+  const obs=document.getElementById('ap-obs').value.trim();
+
+  if(!prodId||!cant||!costoI){showAlert('ap-alert','err','⚠️ Completa todos los campos obligatorios.');return;}
+
+  const costoNeto=aperturaConIva?costoI/(1+IVA):costoI;
+  const ivaTotal=(costoI-costoNeto)*cant;
+  const prod=gp(prodId);
+  const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,stock_reservado:0,pmp_actual:0,stock_usuarios:{}};
+  const pmpN=inv.stock_total>0?(inv.stock_total*inv.pmp_actual+cant*costoNeto)/(inv.stock_total+cant):costoNeto;
+  const stockN=inv.stock_total+cant;
+  const dispN=inv.stock_disponible+cant;
+
+  const btn=document.getElementById('btn-apertura');
+  btn.disabled=true;btn.textContent='GUARDANDO...';
+
+  try{
+    // Registrar en compras con tipo apertura
+    const {data:cd,error:ce}=await db.from('compras').insert({
+      fecha:today(),
+      proveedor:'APERTURA INICIAL',
+      producto_id:prodId,
+      producto_nombre:prod.nombre,
+      cantidad:cant,
+      costo_unitario:costoNeto,
+      costo_total:cant*costoNeto,
+      pmp_resultante:pmpN,
+      stock_resultante:stockN,
+      incluye_iva:aperturaConIva,
+      nota:`APERTURA${obs?' — '+obs:''}${aperturaConIva?` [IVA: ${fmt(ivaTotal)}]`:''}`,
+      usuario:usuario
+    }).select().single();
+    if(ce)throw ce;
+
+    // Actualizar inventario
+    const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',prodId);
+    const cur=curRows&&curRows.length?curRows[0]:null;
+    const base={stock_reservado:0,stock_usuarios:{},...(cur||{})};
+    const stockUsuarios=typeof base.stock_usuarios==='object'&&base.stock_usuarios!==null
+      ?{...base.stock_usuarios}:{};
+    stockUsuarios[usuario]=(stockUsuarios[usuario]||0)+cant;
+
+    const fullUpd={
+      producto_id:prodId,nombre:prod.nombre,variedad:prod.variedad,formato:prod.formato,
+      stock_total:stockN,stock_disponible:dispN,stock_reservado:base.stock_reservado||0,
+      stock_usuarios:stockUsuarios,
+      pmp_actual:pmpN,ultima_compra:today(),updated_at:new Date().toISOString()
+    };
+    const {error:uErr}=await db.from('inventario').upsert(fullUpd,{onConflict:'producto_id'});
+    if(uErr)throw uErr;
+
+    // Registrar en movimientos como Apertura
+    await db.from('movimientos').insert({
+      producto_id:prodId,producto_nombre:prod.nombre,
+      tipo:'Entrada',cantidad:cant,
+      stock_anterior:inv.stock_disponible,stock_resultante:dispN,
+      stock_reservado_anterior:base.stock_reservado||0,stock_reservado_resultante:base.stock_reservado||0,
+      referencia_tipo:'Apertura'+(obs?' — '+obs:''),referencia_id:cd.id,
+      venta_id:null,usuario:usuario,fecha:new Date().toISOString()
+    });
+
+    // NO registrar en caja (apertura es saldo inicial, no movimiento de caja)
+
+    // Sync a Sheets
+    await sheetsAppendCompra(today(),'APERTURA INICIAL',prod.nombre,cant,costoNeto,ivaTotal,pmpN,stockN,aperturaConIva,`APERTURA${obs?' — '+obs:''}`,usuario);
+    await sheetsAppendMovimiento(new Date().toISOString(),prod.nombre,'Entrada (Apertura)',cant,inv.stock_disponible,dispN,base.stock_reservado||0,base.stock_reservado||0,null,usuario);
+
+    invCache[prodId]={stock_total:stockN,stock_disponible:dispN,stock_reservado:base.stock_reservado||0,pmp_actual:pmpN,stock_usuarios:stockUsuarios};
+
+    closeApertura();
+    showModal('📋 Apertura Registrada',
+      `${cant} uds de ${prod.nombre} asignadas a ${usuario}.
+Stock: ${dispN} uds | PMP: ${fmt(pmpN)}`,
+      '📋');
+    loadInv();
+
+  }catch(e){
+    showAlert('ap-alert','err','❌ Error: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='REGISTRAR APERTURA';
   }
 }
 
