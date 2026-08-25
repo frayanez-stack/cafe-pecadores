@@ -2149,7 +2149,7 @@ async function registrarApertura(){
     await db.from('movimientos').insert({
       producto_id:prodId,producto_nombre:prod.nombre,
       tipo:'Entrada',cantidad:cant,
-      stock_anterior:inv.stock_disponible,stock_resultante:dispN,
+      stock_anterior:base.stock_disponible,stock_resultante:dispN,
       stock_reservado_anterior:base.stock_reservado||0,stock_reservado_resultante:base.stock_reservado||0,
       referencia_tipo:'Apertura'+(obs?' — '+obs:''),referencia_id:cd.id,
       venta_id:null,usuario:usuario,fecha:new Date().toISOString()
@@ -2159,7 +2159,7 @@ async function registrarApertura(){
 
     // Sync a Sheets
     await sheetsAppendCompra(today(),'APERTURA INICIAL',prod.nombre,cant,costoNeto,ivaTotal,pmpN,stockN,aperturaConIva,`APERTURA${obs?' — '+obs:''}`,usuario);
-    await sheetsAppendMovimiento(new Date().toISOString(),prod.nombre,'Entrada (Apertura)',cant,inv.stock_disponible,dispN,base.stock_reservado||0,base.stock_reservado||0,null,usuario);
+    await sheetsAppendMovimiento(new Date().toISOString(),prod.nombre,'Entrada (Apertura)',cant,base.stock_disponible,dispN,base.stock_reservado||0,base.stock_reservado||0,null,usuario);
 
     invCache[prodId]={stock_total:stockN,stock_disponible:dispN,stock_reservado:base.stock_reservado||0,pmp_actual:pmpN,stock_usuarios:stockUsuarios};
 
