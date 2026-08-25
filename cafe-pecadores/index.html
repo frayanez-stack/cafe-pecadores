@@ -421,6 +421,34 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
   </div>
 </div>
 
+<!-- MODAL EDITAR REGISTRO -->
+<div id="modal-editar" style="position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(45,26,8,.45);backdrop-filter:blur(4px);padding:20px;">
+  <div style="background:var(--white);border-radius:var(--r);padding:28px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);border-top:4px solid var(--accent);animation:up .3s ease;max-height:90vh;overflow-y:auto;">
+    <div style="font-family:'Libre Baskerville',serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">✏️ Editar Registro</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;" id="edit-subtitulo"></div>
+    <div id="edit-alert" class="alert"></div>
+    <div id="edit-campos"></div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button onclick="closeEditar()" class="btn-sec" style="flex:1;">CANCELAR</button>
+      <button id="btn-edit-save" onclick="guardarEdicion()" style="flex:1;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:var(--r2);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px;cursor:pointer;">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ANULAR REGISTRO -->
+<div id="modal-anular" style="position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(45,26,8,.45);backdrop-filter:blur(4px);padding:20px;">
+  <div style="background:var(--white);border-radius:var(--r);padding:28px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);border-top:4px solid var(--danger);animation:up .3s ease;">
+    <div style="font-size:36px;text-align:center;margin-bottom:10px;">⚠️</div>
+    <div style="font-family:'Libre Baskerville',serif;font-size:16px;font-weight:700;color:var(--text);text-align:center;margin-bottom:8px;">Anular Registro</div>
+    <div style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:12px;" id="anular-detalle"></div>
+    <div id="anular-aviso" style="background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.2);border-radius:var(--r2);padding:10px 12px;font-size:11px;color:var(--danger);margin-bottom:14px;display:none;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeAnular()" class="btn-sec" style="flex:1;">CANCELAR</button>
+      <button id="btn-anular-confirm" onclick="confirmarAnulacion()" style="flex:1;background:linear-gradient(135deg,var(--danger),#e74c3c);border:none;border-radius:var(--r2);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px;cursor:pointer;">ANULAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
@@ -585,7 +613,7 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
         <div class="ct">📋 Historial de Ventas</div>
         <div class="tw">
           <table>
-            <thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Total</th><th>Estado</th><th>Pago</th><th>Usuario</th></tr></thead>
+            <thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Total</th><th>Estado</th><th>Pago</th><th>Usuario</th><th></th></tr></thead>
             <tbody id="vtbody"></tbody>
           </table>
         </div>
@@ -621,7 +649,7 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
         <div class="ct">📋 Historial de Compras</div>
         <div class="tw">
           <table>
-            <thead><tr><th>Fecha</th><th>Producto</th><th>Cant.</th><th>Costo Neto</th><th>IVA</th><th>PMP</th><th>Usuario</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Producto</th><th>Cant.</th><th>Costo Neto</th><th>IVA</th><th>PMP</th><th>Usuario</th><th></th></tr></thead>
             <tbody id="ctbody"></tbody>
           </table>
         </div>
@@ -674,7 +702,7 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
         <div class="ct">📋 Movimientos</div>
         <div class="tw">
           <table>
-            <thead><tr><th>Fecha</th><th>Tipo</th><th>ID Venta</th><th>Origen</th><th>Pago</th><th>Monto</th><th>Saldo</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>ID Venta</th><th>Origen</th><th>Pago</th><th>Monto</th><th>Saldo</th><th></th></tr></thead>
             <tbody id="cajtbody"></tbody>
           </table>
         </div>
@@ -747,6 +775,21 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
           <div class="ct">🔄 Rotación de Inventario</div>
           <div id="an-rotacion"></div>
         </div>
+        <div class="card" style="margin-top:12px;">
+          <div class="ct">🍩 Distribución Gráfica</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Por variedad</div>
+              <div style="position:relative;height:140px;"><canvas id="chart-variedad" role="img" aria-label="Gráfica de ventas por variedad">Ventas por variedad</canvas></div>
+              <div id="leyenda-variedad" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Molido vs grano</div>
+              <div style="position:relative;height:140px;"><canvas id="chart-formato" role="img" aria-label="Gráfica de ventas por formato">Molido vs Grano</canvas></div>
+              <div id="leyenda-formato" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            </div>
+          </div>
+        </div>
       </div>
       <!-- TAB CANALES -->
       <div class="analysis-panel" id="tab-canales">
@@ -754,12 +797,42 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
           <div class="ct">📡 Ventas por Canal</div>
           <div id="an-canales"></div>
         </div>
+        <div class="card" style="margin-top:12px;">
+          <div class="ct">🍩 Distribución Gráfica</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Por variedad</div>
+              <div style="position:relative;height:140px;"><canvas id="chart-variedad-c" role="img" aria-label="Gráfica de ventas por variedad">Ventas por variedad</canvas></div>
+              <div id="leyenda-variedad-c" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Molido vs grano</div>
+              <div style="position:relative;height:140px;"><canvas id="chart-formato-c" role="img" aria-label="Gráfica de ventas por formato">Molido vs Grano</canvas></div>
+              <div id="leyenda-formato-c" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            </div>
+          </div>
+        </div>
       </div>
       <!-- TAB USUARIOS -->
       <div class="analysis-panel" id="tab-usuarios">
         <div class="card">
           <div class="ct">👤 Ventas por Usuario</div>
           <div id="an-usuarios"></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
+          <div class="ct">🍩 Distribución Gráfica</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Por variedad</div>
+              <div style="position:relative;height:140px;"><canvas id="chart-variedad-u" role="img" aria-label="Gráfica de ventas por variedad">Ventas por variedad</canvas></div>
+              <div id="leyenda-variedad-u" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Molido vs grano</div>
+              <div style="position:relative;height:140px;"><canvas id="chart-formato-u" role="img" aria-label="Gráfica de ventas por formato">Molido vs Grano</canvas></div>
+              <div id="leyenda-formato-u" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            </div>
+          </div>
         </div>
       </div>
       <!-- TAB INVENTARIO -->
@@ -771,6 +844,21 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
         <div class="card">
           <div class="ct">📉 Consumos Internos Acumulados</div>
           <div id="an-consumos"></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
+          <div class="ct">🍩 Distribución Gráfica</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Por variedad</div>
+              <div style="position:relative;height:140px;"><canvas id="chart-variedad-i" role="img" aria-label="Gráfica de ventas por variedad">Ventas por variedad</canvas></div>
+              <div id="leyenda-variedad-i" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Molido vs grano</div>
+              <div style="position:relative;height:140px;"><canvas id="chart-formato-i" role="img" aria-label="Gráfica de ventas por formato">Molido vs Grano</canvas></div>
+              <div id="leyenda-formato-i" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -855,8 +943,24 @@ function showModalPago(venta){
 function closeModalPago(){document.getElementById('modal-pago').style.display='none';ventaPendientePago=null;}
 
 // ══ INIT ══════════════════════════════════════════════
+// EmailJS: inicializar cuando el SDK esté listo
+function initEmailJS(){
+  if(typeof emailjs !== 'undefined'){
+    emailjs.init({publicKey: EMAILJS_KEY});
+    console.log('✅ EmailJS inicializado');
+  } else {
+    console.warn('⚠️ EmailJS SDK no cargado aún');
+  }
+}
+
 window.addEventListener('DOMContentLoaded',()=>{
-  emailjs.init({publicKey: EMAILJS_KEY});
+  // Esperar a que SDK cargue si aún no está listo
+  if(typeof emailjs !== 'undefined'){
+    initEmailJS();
+  } else {
+    const ejsScript = document.querySelector('script[src*="emailjs"]');
+    if(ejsScript) ejsScript.addEventListener('load', initEmailJS);
+  }
   const d=today();
   ['v-fecha','p-fecha','c-fecha','g-fecha'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=d;});
   populateDropdowns();renderCatalogo();buildPackItems();
@@ -1664,16 +1768,25 @@ async function loadVentas(){
   try{
     const {data}=await db.from('ventas').select('*').order('created_at',{ascending:false}).limit(60);
     if(!data||!data.length){tb.innerHTML=`<tr><td colspan="8" class="er">Sin ventas aún.</td></tr>`;return;}
-    tb.innerHTML=data.map(r=>`<tr>
-      <td><span class="vid-badge" style="font-size:10px;">${r.venta_id}</span></td>
-      <td class="td">${r.fecha}</td>
-      <td style="font-weight:600;">${r.cliente}</td>
-      <td class="${vcls((gp(r.producto_id)||{variedad:'ira'}).variedad)}">${r.producto_nombre}</td>
-      <td class="tm tg">${fmt(r.total_venta)}</td>
-      <td><span class="badge ${r.estado==='PAGADO'?'b-ok':'b-res'}">${r.estado}</span></td>
-      <td class="td">${r.forma_pago||'—'}</td>
-      <td><span class="badge b-info">${r.usuario}</span></td>
-    </tr>`).join('');
+    tb.innerHTML=data.map(r=>{
+      const dias=Math.floor((new Date()-new Date(r.created_at||r.fecha))/(1000*60*60*24));
+      const editable=dias<=7;
+      const btns=editable?`<td style="white-space:nowrap;">
+        <button onclick="abrirEditar('venta','${r.id}',${JSON.stringify(r).replace(/'/g,"\'")})" style="background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;font-size:9px;font-weight:700;padding:3px 7px;cursor:pointer;margin-right:3px;">✏️</button>
+        <button onclick="abrirAnular('venta','${r.id}',${JSON.stringify(r).replace(/'/g,"\'")})" style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:4px;font-size:9px;font-weight:700;padding:3px 7px;cursor:pointer;">🗑️</button>
+      </td>`:'<td></td>';
+      return `<tr>
+        <td><span class="vid-badge" style="font-size:10px;">${r.venta_id}</span></td>
+        <td class="td">${r.fecha}</td>
+        <td style="font-weight:600;">${r.cliente}</td>
+        <td class="${vcls((gp(r.producto_id)||{variedad:'ira'}).variedad)}">${r.producto_nombre}</td>
+        <td class="tm tg">${fmt(r.total_venta)}</td>
+        <td><span class="badge ${r.estado==='PAGADO'?'b-ok':'b-res'}">${r.estado}</span></td>
+        <td class="td">${r.forma_pago||'—'}</td>
+        <td><span class="badge b-info">${r.usuario}</span></td>
+        ${btns}
+      </tr>`;
+    }).join('');
   }catch(e){tb.innerHTML=`<tr><td colspan="8" class="er" style="color:var(--danger)">Error</td></tr>`;}
 }
 
@@ -1683,15 +1796,24 @@ async function loadCompras(){
   try{
     const {data}=await db.from('compras').select('*').order('created_at',{ascending:false}).limit(60);
     if(!data||!data.length){tb.innerHTML=`<tr><td colspan="7" class="er">Sin compras aún.</td></tr>`;return;}
-    tb.innerHTML=data.map(r=>`<tr>
-      <td class="td">${r.fecha}</td>
-      <td class="${vcls((gp(r.producto_id)||{variedad:'ira'}).variedad)}">${r.producto_nombre}</td>
-      <td class="tm">${r.cantidad} uds</td>
-      <td class="tm tg">${fmt(r.costo_total)}</td>
-      <td class="tm td">${r.incluye_iva?fmt(r.costo_unitario*IVA*r.cantidad):'—'}</td>
-      <td class="tm td">${fmt(r.pmp_resultante)}</td>
-      <td><span class="badge b-info">${r.usuario}</span></td>
-    </tr>`).join('');
+    tb.innerHTML=data.map(r=>{
+      const dias=Math.floor((new Date()-new Date(r.created_at||r.fecha))/(1000*60*60*24));
+      const editable=dias<=7;
+      const btns=editable?`<td style="white-space:nowrap;">
+        <button onclick="abrirEditar('compra','${r.id}',${JSON.stringify(r).replace(/'/g,"\'")})" style="background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;font-size:9px;font-weight:700;padding:3px 7px;cursor:pointer;margin-right:3px;">✏️</button>
+        <button onclick="abrirAnular('compra','${r.id}',${JSON.stringify(r).replace(/'/g,"\'")})" style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:4px;font-size:9px;font-weight:700;padding:3px 7px;cursor:pointer;">🗑️</button>
+      </td>`:'<td></td>';
+      return `<tr>
+        <td class="td">${r.fecha}</td>
+        <td class="${vcls((gp(r.producto_id)||{variedad:'ira'}).variedad)}">${r.producto_nombre}</td>
+        <td class="tm">${r.cantidad} uds</td>
+        <td class="tm tg">${fmt(r.costo_total)}</td>
+        <td class="tm td">${r.incluye_iva?fmt(r.costo_unitario*IVA*r.cantidad):'—'}</td>
+        <td class="tm td">${fmt(r.pmp_resultante)}</td>
+        <td><span class="badge b-info">${r.usuario}</span></td>
+        ${btns}
+      </tr>`;
+    }).join('');
   }catch(e){tb.innerHTML=`<tr><td colspan="7" class="er" style="color:var(--danger)">Error</td></tr>`;}
 }
 
@@ -1701,15 +1823,25 @@ async function loadCaja(){
   try{
     const {data}=await db.from('caja').select('*').order('created_at',{ascending:false}).limit(60);
     if(!data||!data.length){tb.innerHTML=`<tr><td colspan="7" class="er">Sin movimientos.</td></tr>`;}
-    else{tb.innerHTML=data.map(r=>`<tr>
-      <td class="td">${r.fecha}</td>
-      <td><span class="badge ${r.tipo==='Ingreso'?'b-ok':'b-crit'}">${r.tipo}</span></td>
-      <td class="td">${r.venta_id?`<span class="vid-badge" style="font-size:9px;">${r.venta_id}</span>`:'—'}</td>
-      <td class="td">${r.origen}</td>
-      <td class="td">${r.forma_pago||'—'}</td>
-      <td class="tm ${r.tipo==='Ingreso'?'tg2':'tr'}">${r.tipo==='Ingreso'?'+':'-'}${fmt(r.monto)}</td>
-      <td class="tm">${fmt(r.saldo_acumulado)}</td>
-    </tr>`).join('');}
+    else{tb.innerHTML=data.map(r=>{
+      const dias=Math.floor((new Date()-new Date(r.created_at||r.fecha))/(1000*60*60*24));
+      const esGasto=r.tipo==='Egreso'&&r.origen&&r.origen.startsWith('Gasto');
+      const editable=dias<=7&&esGasto;
+      const btns=editable?`<td style="white-space:nowrap;">
+        <button onclick="abrirEditar('gasto','${r.id}',${JSON.stringify(r).replace(/'/g,"\'")})" style="background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;font-size:9px;font-weight:700;padding:3px 7px;cursor:pointer;margin-right:3px;">✏️</button>
+        <button onclick="abrirAnular('gasto','${r.id}',${JSON.stringify(r).replace(/'/g,"\'")})" style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:4px;font-size:9px;font-weight:700;padding:3px 7px;cursor:pointer;">🗑️</button>
+      </td>`:'<td></td>';
+      return `<tr>
+        <td class="td">${r.fecha}</td>
+        <td><span class="badge ${r.tipo==='Ingreso'?'b-ok':'b-crit'}">${r.tipo}</span></td>
+        <td class="td">${r.venta_id?`<span class="vid-badge" style="font-size:9px;">${r.venta_id}</span>`:'—'}</td>
+        <td class="td">${r.origen}</td>
+        <td class="td">${r.forma_pago||'—'}</td>
+        <td class="tm ${r.tipo==='Ingreso'?'tg2':'tr'}">${r.tipo==='Ingreso'?'+':'-'}${fmt(r.monto)}</td>
+        <td class="tm">${fmt(r.saldo_acumulado)}</td>
+        ${btns}
+      </tr>`;
+    }).join('');}
     const hoy=today();
     const ingHoy=(data||[]).filter(r=>r.fecha===hoy&&r.tipo==='Ingreso').reduce((s,r)=>s+r.monto,0);
     const last=data&&data.length?data[0]:null;
@@ -1969,15 +2101,21 @@ async function registrarApertura(){
   const costoNeto=aperturaConIva?costoI/(1+IVA):costoI;
   const ivaTotal=(costoI-costoNeto)*cant;
   const prod=gp(prodId);
-  const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,stock_reservado:0,pmp_actual:0,stock_usuarios:{}};
-  const pmpN=inv.stock_total>0?(inv.stock_total*inv.pmp_actual+cant*costoNeto)/(inv.stock_total+cant):costoNeto;
-  const stockN=inv.stock_total+cant;
-  const dispN=inv.stock_disponible+cant;
 
   const btn=document.getElementById('btn-apertura');
   btn.disabled=true;btn.textContent='GUARDANDO...';
 
   try{
+    // Leer stock REAL desde DB (no usar caché para evitar sobrescritura)
+    const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',prodId);
+    const cur=curRows&&curRows.length?curRows[0]:null;
+    const base={stock_total:0,stock_disponible:0,stock_reservado:0,pmp_actual:0,stock_usuarios:{},...(cur||{})};
+
+    // Calcular con valores reales de DB
+    const pmpN=base.stock_total>0?(base.stock_total*base.pmp_actual+cant*costoNeto)/(base.stock_total+cant):costoNeto;
+    const stockN=base.stock_total+cant;
+    const dispN=base.stock_disponible+cant;
+
     // Registrar en compras con tipo apertura
     const {data:cd,error:ce}=await db.from('compras').insert({
       fecha:today(),
@@ -1994,11 +2132,6 @@ async function registrarApertura(){
       usuario:usuario
     }).select().single();
     if(ce)throw ce;
-
-    // Actualizar inventario
-    const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',prodId);
-    const cur=curRows&&curRows.length?curRows[0]:null;
-    const base={stock_reservado:0,stock_usuarios:{},...(cur||{})};
     const stockUsuarios=typeof base.stock_usuarios==='object'&&base.stock_usuarios!==null
       ?{...base.stock_usuarios}:{};
     stockUsuarios[usuario]=(stockUsuarios[usuario]||0)+cant;
@@ -2293,21 +2426,259 @@ async function loadAnalisis(){
           <div style="font-size:13px;font-weight:700;color:var(--danger);">${fmt(costo)}</div>
         </div>`;}).join('');}
     }
+    // Renderizar gráficas en todos los tabs
+    renderGraficas(porProd, ventas);
+    // Clonar datos para tabs secundarios (mismos charts, distintos canvas IDs)
+    ['c','u','i'].forEach(suffix=>{
+      const el1=document.getElementById('chart-variedad-'+suffix);
+      const el2=document.getElementById('chart-formato-'+suffix);
+      if(!el1||!el2)return;
+      loadChartJs(()=>{
+        const isDark=document.documentElement.dataset.mode==='dark'||matchMedia('(prefers-color-scheme: dark)').matches;
+        const bc=isDark?'#1a1a19':'#ffffff';
+        const varColors={Ira:'#c0392b',Soberbia:'#1a6fa8',Gula:'#b8760a',Lujuria:'#7d3aad'};
+        const varLabels=[],varData=[],varBg=[];
+        Object.entries(porProd).sort((a,b)=>b[1].cant-a[1].cant).forEach(([id,d])=>{
+          const v=Object.keys(varColors).find(k=>d.nombre&&d.nombre.includes(k))||'Otro';
+          varLabels.push(v);varData.push(d.cant);varBg.push(varColors[v]||'#9a7550');
+        });
+        let molido=0,grano=0;
+        (ventas||[]).filter(v=>v.estado==='PAGADO').forEach(v=>{
+          if(v.producto_id&&v.producto_id.includes('MOL'))molido+=v.cantidad||0;
+          if(v.producto_id&&v.producto_id.includes('GRA'))grano+=v.cantidad||0;
+        });
+        const tot=molido+grano||1;
+        new Chart(el1,{type:'doughnut',data:{labels:varLabels,datasets:[{data:varData,backgroundColor:varBg,borderColor:bc,borderWidth:2,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.raw+' uds'}}}}});
+        new Chart(el2,{type:'doughnut',data:{labels:['Molido','Grano'],datasets:[{data:[Math.round(molido/tot*100),Math.round(grano/tot*100)],backgroundColor:['#c9892a','#6B3F2A'],borderColor:bc,borderWidth:2,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.raw+'%'}}}}});
+        const l1=document.getElementById('leyenda-variedad-'+suffix);
+        if(l1)l1.innerHTML=varLabels.map((l,i)=>`<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);"><span style="width:8px;height:8px;border-radius:2px;background:${varBg[i]};flex-shrink:0;"></span>${l}</span>`).join('');
+        const l2=document.getElementById('leyenda-formato-'+suffix);
+        if(l2)l2.innerHTML=`<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);"><span style="width:8px;height:8px;border-radius:2px;background:#c9892a;flex-shrink:0;"></span>Molido</span><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);"><span style="width:8px;height:8px;border-radius:2px;background:#6B3F2A;flex-shrink:0;"></span>Grano</span>`;
+      });
+    });
   }catch(e){console.error('analisis error',e);}
 }
 
 // ══ NOTIFICACIONES EMAIL ═════════════════════════════
 async function sendEmailNotif(tipo, producto, cantidad, usuario, fecha, monto, stock){
   try{
+    if(typeof emailjs === 'undefined'){
+      console.warn('EmailJS no disponible — reintentando init');
+      initEmailJS();
+      await new Promise(r=>setTimeout(r,500));
+    }
+    if(typeof emailjs === 'undefined'){
+      console.warn('EmailJS sigue no disponible — email omitido');
+      return;
+    }
     for(const email of NOTIFY_EMAILS){
-      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
-        tipo, producto, cantidad, usuario,
-        fecha, monto, stock,
+      const result = await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        tipo:     String(tipo||''),
+        producto: String(producto||''),
+        cantidad: String(cantidad||''),
+        usuario:  String(usuario||''),
+        fecha:    String(fecha||''),
+        monto:    String(monto||''),
+        stock:    String(stock||''),
         to_email: email
       });
+      console.log('✅ Email enviado a', email, result.status);
     }
   }catch(e){
-    console.warn('Email notif failed (non-critical):', e);
+    console.warn('❌ Email notif failed:', e.text||e.message||e);
+  }
+}
+
+// ══ EDITAR Y ANULAR REGISTROS ════════════════════════
+let editContext = null;
+let anularContext = null;
+
+function abrirEditar(tipo, id, data){
+  editContext = {tipo, id, data};
+  const campos = document.getElementById('edit-campos');
+  const subtitulo = document.getElementById('edit-subtitulo');
+  document.getElementById('edit-alert').style.display='none';
+
+  if(tipo==='venta'){
+    subtitulo.textContent = `Venta ${data.venta_id} — ${data.cliente}`;
+    campos.innerHTML = `
+      <div class="fr">
+        <div class="fg ff"><label class="fl">Cliente</label><input type="text" class="fi" id="ed-cliente" value="${data.cliente||''}" oninput="this.value=this.value.toUpperCase()"></div>
+        <div class="fg"><label class="fl">Fecha</label><input type="date" class="fi" id="ed-fecha" value="${data.fecha||''}"></div>
+        <div class="fg"><label class="fl">Canal</label><select class="fi" id="ed-canal"><option ${data.canal==='Instagram'?'selected':''}>Instagram</option><option ${data.canal==='WhatsApp'?'selected':''}>WhatsApp</option><option ${data.canal==='Presencial'?'selected':''}>Presencial</option><option ${data.canal==='Otro'?'selected':''}>Otro</option></select></div>
+        <div class="fg ff"><label class="fl">Forma de Pago</label><select class="fi" id="ed-pago"><option value="">— Sin pago —</option><option ${data.forma_pago==='Efectivo'?'selected':''}>Efectivo</option><option ${data.forma_pago==='Transferencia'?'selected':''}>Transferencia</option><option ${data.forma_pago==='WebPay'?'selected':''}>WebPay</option></select></div>
+      </div>`;
+  } else if(tipo==='compra'){
+    subtitulo.textContent = `Compra — ${data.producto_nombre}`;
+    campos.innerHTML = `
+      <div class="fr">
+        <div class="fg"><label class="fl">Fecha</label><input type="date" class="fi" id="ed-fecha" value="${data.fecha||''}"></div>
+        <div class="fg"><label class="fl">Proveedor</label><input type="text" class="fi" id="ed-prov" value="${data.proveedor||''}"></div>
+        <div class="fg ff"><label class="fl">Nota</label><input type="text" class="fi" id="ed-nota" value="${(data.nota||'').replace(/\[IVA.*\]/,'').trim()}"></div>
+        <div class="fg ff"><label class="fl">Recibido por</label><select class="fi" id="ed-usuario"><option ${data.usuario==='AR'?'selected':''}  value="AR">A.R.</option><option ${data.usuario==='JG'?'selected':''} value="JG">J.G.</option><option ${data.usuario==='MS'?'selected':''} value="MS">M.S.</option><option ${data.usuario==='FY'?'selected':''} value="FY">F.Y.</option></select></div>
+      </div>`;
+  } else if(tipo==='gasto'){
+    subtitulo.textContent = `Gasto — ${data.descripcion||data.origen}`;
+    campos.innerHTML = `
+      <div class="fr">
+        <div class="fg"><label class="fl">Fecha</label><input type="date" class="fi" id="ed-fecha" value="${data.fecha||''}"></div>
+        <div class="fg ff"><label class="fl">Descripción</label><input type="text" class="fi" id="ed-desc" value="${data.descripcion||''}"></div>
+      </div>`;
+  }
+  document.getElementById('modal-editar').style.display='flex';
+}
+
+function closeEditar(){
+  document.getElementById('modal-editar').style.display='none';
+  editContext=null;
+}
+
+async function guardarEdicion(){
+  if(!editContext)return;
+  const {tipo,id,data}=editContext;
+  const btn=document.getElementById('btn-edit-save');
+  btn.disabled=true;btn.textContent='GUARDANDO...';
+  try{
+    if(tipo==='venta'){
+      const upd={
+        cliente:document.getElementById('ed-cliente').value.toUpperCase().trim(),
+        fecha:document.getElementById('ed-fecha').value,
+        canal:document.getElementById('ed-canal').value,
+        forma_pago:document.getElementById('ed-pago').value||null,
+      };
+      const {error}=await db.from('ventas').update(upd).eq('id',id);
+      if(error)throw error;
+    } else if(tipo==='compra'){
+      const upd={
+        fecha:document.getElementById('ed-fecha').value,
+        proveedor:document.getElementById('ed-prov').value.trim(),
+        nota:document.getElementById('ed-nota').value.trim(),
+        usuario:document.getElementById('ed-usuario').value,
+      };
+      const {error}=await db.from('compras').update(upd).eq('id',id);
+      if(error)throw error;
+    } else if(tipo==='gasto'){
+      const upd={
+        fecha:document.getElementById('ed-fecha').value,
+        descripcion:document.getElementById('ed-desc').value.trim(),
+      };
+      const {error}=await db.from('caja').update(upd).eq('id',id);
+      if(error)throw error;
+    }
+    closeEditar();
+    showModal('✅ Registro Actualizado','Los cambios han sido guardados correctamente.','✏️');
+    if(tipo==='venta')loadVentas();
+    if(tipo==='compra')loadCompras();
+    if(tipo==='gasto')loadCaja();
+  }catch(e){
+    showAlert('edit-alert','err','❌ Error: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='GUARDAR';
+  }
+}
+
+// ── ANULAR ─────────────────────────────────────────────
+function abrirAnular(tipo, id, data){
+  anularContext={tipo,id,data};
+  const detalle=document.getElementById('anular-detalle');
+  const aviso=document.getElementById('anular-aviso');
+
+  if(tipo==='venta'){
+    detalle.innerHTML=`<strong>${data.venta_id}</strong><br>${data.cliente} — ${data.producto_nombre}<br>${fmt(data.total_venta)} | ${data.estado}`;
+    aviso.style.display='block';
+    aviso.textContent=data.estado==='PAGADO'
+      ?'Se revertirá el stock (+'+data.cantidad+' uds), se eliminará el ingreso de caja y el movimiento de kardex.'
+      :'Se liberará el stock reservado ('+data.cantidad+' uds). No hay movimiento de caja que revertir.';
+  } else if(tipo==='compra'){
+    detalle.innerHTML=`${data.producto_nombre}<br>${data.cantidad} uds — ${fmt(data.costo_total)} neto`;
+    aviso.style.display='block';
+    aviso.innerHTML='Se descontarán '+data.cantidad+' uds del stock y se revertirá el egreso de caja.<br><strong>⚠️ El PMP puede quedar desajustado — revisa el inventario.</strong>';
+  } else if(tipo==='gasto'){
+    detalle.innerHTML=`Gasto operacional<br>${data.descripcion||data.origen}<br>${fmt(data.monto)}`;
+    aviso.style.display='block';
+    aviso.textContent='Se eliminará el egreso de caja y se recalculará el saldo.';
+  }
+  document.getElementById('modal-anular').style.display='flex';
+}
+
+function closeAnular(){
+  document.getElementById('modal-anular').style.display='none';
+  anularContext=null;
+}
+
+async function confirmarAnulacion(){
+  if(!anularContext)return;
+  const {tipo,id,data}=anularContext;
+  const btn=document.getElementById('btn-anular-confirm');
+  btn.disabled=true;btn.textContent='ANULANDO...';
+  try{
+    if(tipo==='venta'){
+      // Revertir stock
+      const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',data.producto_id);
+      const cur=curRows&&curRows.length?curRows[0]:null;
+      if(cur){
+        const upd={updated_at:new Date().toISOString()};
+        if(data.estado==='PAGADO'){
+          upd.stock_total=(cur.stock_total||0)+data.cantidad;
+          upd.stock_disponible=(cur.stock_disponible||0)+data.cantidad;
+        } else {
+          upd.stock_disponible=(cur.stock_disponible||0)+data.cantidad;
+          upd.stock_reservado=Math.max(0,(cur.stock_reservado||0)-data.cantidad);
+        }
+        // Revertir stock_usuarios
+        const su={...(cur.stock_usuarios||{})};
+        su[data.usuario]=Math.max(0,(su[data.usuario]||0)-data.cantidad);
+        upd.stock_usuarios=su;
+        await db.from('inventario').update(upd).eq('producto_id',data.producto_id);
+      }
+      // Revertir caja si era pagado
+      if(data.estado==='PAGADO'){
+        await db.from('caja').delete().eq('venta_id',data.venta_id);
+      }
+      // Eliminar movimientos
+      await db.from('movimientos').delete().eq('venta_id',data.venta_id);
+      // Eliminar pack detalle si aplica
+      await db.from('ventas_pack_detalle').delete().eq('venta_id',id);
+      // Eliminar venta
+      await db.from('ventas').delete().eq('id',id);
+      closeAnular();
+      showModal('🗑️ Venta Anulada','La venta ha sido anulada y el stock revertido.','🗑️');
+      loadVentas();loadReservados();loadDash();
+
+    } else if(tipo==='compra'){
+      // Revertir stock
+      const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',data.producto_id);
+      const cur=curRows&&curRows.length?curRows[0]:null;
+      if(cur){
+        const su={...(cur.stock_usuarios||{})};
+        su[data.usuario]=Math.max(0,(su[data.usuario]||0)-data.cantidad);
+        await db.from('inventario').update({
+          stock_total:Math.max(0,(cur.stock_total||0)-data.cantidad),
+          stock_disponible:Math.max(0,(cur.stock_disponible||0)-data.cantidad),
+          stock_usuarios:su,
+          updated_at:new Date().toISOString()
+        }).eq('producto_id',data.producto_id);
+      }
+      // Revertir caja
+      await db.from('caja').delete().eq('descripcion','like','%'+data.producto_nombre+'%').eq('tipo','Egreso').eq('fecha',data.fecha);
+      // Eliminar movimiento
+      await db.from('movimientos').delete().eq('referencia_id',id);
+      // Eliminar compra
+      await db.from('compras').delete().eq('id',id);
+      closeAnular();
+      showModal('🗑️ Compra Anulada','La compra fue anulada y el stock descontado. Revisa el PMP en Inventario.','🗑️');
+      loadCompras();loadDash();
+
+    } else if(tipo==='gasto'){
+      // Solo eliminar el registro de caja
+      await db.from('caja').delete().eq('id',id);
+      closeAnular();
+      showModal('🗑️ Gasto Anulado','El gasto operacional fue eliminado.','🗑️');
+      loadCaja();loadDash();
+    }
+  }catch(e){
+    btn.disabled=false;btn.textContent='ANULAR';
+    toast('❌ Error al anular: '+e.message);
   }
 }
 
@@ -2339,6 +2710,90 @@ async function exportarCSV(tabla) {
     URL.revokeObjectURL(url);
     toast('✅ CSV descargado: '+filename);
   } catch(e){toast('❌ Error al exportar: '+e.message);}
+}
+
+// Chart.js loaded dynamically when needed
+let chartJsLoaded = false;
+function loadChartJs(cb){
+  if(chartJsLoaded){cb();return;}
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+  s.onload=()=>{chartJsLoaded=true;cb();};
+  document.head.appendChild(s);
+}
+let chartVariedad=null, chartFormato=null;
+
+function renderGraficas(porProd, ventasData){
+  loadChartJs(()=>{
+    const isDark=document.documentElement.dataset.mode==='dark'||matchMedia('(prefers-color-scheme: dark)').matches;
+    const borderClr=isDark?'#1a1a19':'#ffffff';
+
+    // Datos por variedad
+    const varColors={Ira:'#c0392b',Soberbia:'#1a6fa8',Gula:'#b8760a',Lujuria:'#7d3aad'};
+    const varLabels=[],varData=[],varBg=[];
+    Object.entries(porProd).sort((a,b)=>b[1].cant-a[1].cant).forEach(([id,d])=>{
+      const variedad=Object.keys(varColors).find(v=>d.nombre&&d.nombre.includes(v))||'Otro';
+      varLabels.push(variedad);varData.push(d.cant);varBg.push(varColors[variedad]||'#9a7550');
+    });
+
+    // Datos molido vs grano
+    let molido=0,grano=0;
+    (ventasData||[]).filter(v=>v.estado==='PAGADO').forEach(v=>{
+      if(v.producto_id&&v.producto_id.includes('MOL'))molido+=v.cantidad||0;
+      if(v.producto_id&&v.producto_id.includes('GRA'))grano+=v.cantidad||0;
+    });
+    const totalFmt=molido+grano||1;
+    const pctMol=Math.round(molido/totalFmt*100);
+    const pctGra=100-pctMol;
+
+    // Render donut 1 — variedad
+    const el1=document.getElementById('chart-variedad');
+    if(el1){
+      if(chartVariedad){chartVariedad.destroy();}
+      chartVariedad=new Chart(el1,{
+        type:'doughnut',
+        data:{
+          labels:varLabels,
+          datasets:[{data:varData,backgroundColor:varBg,borderColor:borderClr,borderWidth:2,hoverOffset:6}]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,cutout:'60%',
+          plugins:{
+            legend:{display:false},
+            tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.raw+' uds'}}
+          }
+        }
+      });
+    }
+
+    // Render donut 2 — formato
+    const el2=document.getElementById('chart-formato');
+    if(el2){
+      if(chartFormato){chartFormato.destroy();}
+      chartFormato=new Chart(el2,{
+        type:'doughnut',
+        data:{
+          labels:['Molido','Grano'],
+          datasets:[{data:[pctMol,pctGra],backgroundColor:['#c9892a','#6B3F2A'],borderColor:borderClr,borderWidth:2,hoverOffset:6}]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,cutout:'60%',
+          plugins:{
+            legend:{display:false},
+            tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.raw+'%'}}
+          }
+        }
+      });
+    }
+
+    // Actualizar leyendas
+    const ley1=document.getElementById('leyenda-variedad');
+    if(ley1)ley1.innerHTML=varLabels.map((l,i)=>`<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);"><span style="width:8px;height:8px;border-radius:2px;background:${varBg[i]};flex-shrink:0;"></span>${l} ${varData[i]} uds</span>`).join('');
+    const ley2=document.getElementById('leyenda-formato');
+    if(ley2)ley2.innerHTML=`
+      <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);"><span style="width:8px;height:8px;border-radius:2px;background:#c9892a;flex-shrink:0;"></span>Molido ${pctMol}%</span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);"><span style="width:8px;height:8px;border-radius:2px;background:#6B3F2A;flex-shrink:0;"></span>Grano ${pctGra}%</span>`;
+  });
 }
 
 async function installApp(){
