@@ -905,7 +905,7 @@ const pct=n=>(n||0).toFixed(1)+'%';
 const today=()=>new Date().toISOString().split('T')[0];
 const gp=id=>CAT.find(p=>p.id===id);
 const getPass=()=>{const s=localStorage.getItem('pec_p');return s?JSON.parse(s):{...DEFAULT_PASS};};
-const vcls=v=>'v-'+v.toLowerCase();
+const vcls=v=>v?'v-'+v.toLowerCase():'v-ira';
 
 function toast(msg,dur=3200){
   const el=document.getElementById('toast');
@@ -1668,26 +1668,34 @@ async function loadDash(){
     let alerts=[];
 
     if(!inv||!inv.length){
-      tbody.innerHTML=`<tr><td colspan="8" class="er">Sin inventario. Registra una compra.</td></tr>`;
+      tbody.innerHTML=`<tr><td colspan="8" class="er">Sin inventario. Registra una apertura o compra.</td></tr>`;
       alertsDiv.innerHTML='';
+      const pmpElEmpty=document.getElementById('dash-inv-pmp');
+      if(pmpElEmpty)pmpElEmpty.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0;text-align:center;">Sin inventario registrado aún.</div>';
     } else {
       tbody.innerHTML=inv.map(r=>{
-        invCache[r.producto_id]={stock_total:r.stock_total,stock_disponible:r.stock_disponible,stock_reservado:r.stock_reservado,pmp_actual:r.pmp_actual,stock_usuarios:r.stock_usuarios||{}};
-        const umbral=umbralesCache[r.producto_id]||8;
-        const margen=PRECIO_UNIT>0&&r.pmp_actual>0?((PRECIO_UNIT/(1+IVA)-r.pmp_actual)/(PRECIO_UNIT/(1+IVA))*100):0;
-        const crit=r.stock_disponible===0,warn=r.stock_disponible>0&&r.stock_disponible<=umbral;
-        const badge=crit?'<span class="badge b-crit">SIN STOCK</span>':warn?'<span class="badge b-warn">REABASTECER</span>':'<span class="badge b-ok">OK</span>';
-        if(crit||warn)alerts.push({nombre:r.nombre,stock:r.stock_disponible,umbral});
-        return `<tr>
-          <td class="tm td">${r.producto_id}</td>
-          <td class="${vcls(r.variedad)}">${r.nombre}</td>
-          <td class="tm">${r.stock_total}</td>
-          <td class="tm ${r.stock_disponible<=umbral?'tr':'tg2'}">${r.stock_disponible}</td>
-          <td class="tm tres">${r.stock_reservado||0}</td>
-          <td class="tm">${fmt(r.pmp_actual)}</td>
-          <td class="tm ${margen>=40?'tg2':'tr'}">${pct(margen)}</td>
-          <td>${badge}</td>
-        </tr>`;
+        try{
+          invCache[r.producto_id]={stock_total:r.stock_total,stock_disponible:r.stock_disponible,stock_reservado:r.stock_reservado,pmp_actual:r.pmp_actual,stock_usuarios:r.stock_usuarios||{}};
+          const umbral=umbralesCache[r.producto_id]||8;
+          const pNeto=PRECIO_UNIT/(1+IVA);
+          const margen=pNeto>0&&r.pmp_actual>0?((pNeto-r.pmp_actual)/pNeto*100):0;
+          const crit=r.stock_disponible===0,warn=r.stock_disponible>0&&r.stock_disponible<=umbral;
+          const badge=crit?'<span class="badge b-crit">SIN STOCK</span>':warn?'<span class="badge b-warn">REABASTECER</span>':'<span class="badge b-ok">OK</span>';
+          if(crit||warn)alerts.push({nombre:r.nombre||r.producto_id,stock:r.stock_disponible,umbral});
+          return `<tr>
+            <td class="tm td">${r.producto_id||'—'}</td>
+            <td class="${vcls(r.variedad)}">${r.nombre||r.producto_id}</td>
+            <td class="tm">${r.stock_total||0}</td>
+            <td class="tm ${r.stock_disponible<=umbral?'tr':'tg2'}">${r.stock_disponible||0}</td>
+            <td class="tm tres">${r.stock_reservado||0}</td>
+            <td class="tm">${fmt(r.pmp_actual||0)}</td>
+            <td class="tm ${margen>=40?'tg2':'tr'}">${pct(margen)}</td>
+            <td>${badge}</td>
+          </tr>`;
+        }catch(rowErr){
+          console.warn('Error rendering row:', r, rowErr);
+          return `<tr><td colspan="8" class="td" style="color:var(--muted);">${r.producto_id||'?'} — error al renderizar</td></tr>`;
+        }
       }).join('');
       alertsDiv.innerHTML=alerts.length?`<div style="background:rgba(212,114,10,.1);border:1px solid rgba(212,114,10,.3);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;">
         <div style="font-size:11px;font-weight:700;color:var(--warn);letter-spacing:1px;margin-bottom:6px;">⚠️ REABASTECER</div>
