@@ -2258,13 +2258,30 @@ async function registrarConsumo(){
 
   if(!prodId||!cant){showAlert('con-alert','err','⚠️ Selecciona producto y cantidad.');return;}
 
-  const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,stock_reservado:0,pmp_actual:0,stock_usuarios:{}};
-  if(cant>inv.stock_disponible){showAlert('con-alert','err',`❌ Stock insuficiente. Disponible: ${inv.stock_disponible} uds.`);return;}
-
   const btn=document.getElementById('btn-consumo');
   btn.disabled=true;btn.textContent='PROCESANDO...';
 
   try{
+    // LEER STOCK REAL DESDE DB (no usar caché)
+    const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',prodId);
+    const cur=curRows&&curRows.length?curRows[0]:null;
+    if(!cur)throw new Error('Producto no encontrado en inventario. Registra una apertura primero.');
+
+    const inv={
+      stock_total:cur.stock_total||0,
+      stock_disponible:cur.stock_disponible||0,
+      stock_reservado:cur.stock_reservado||0,
+      pmp_actual:cur.pmp_actual||0,
+      stock_usuarios:cur.stock_usuarios||{}
+    };
+
+    // Validar stock con datos reales
+    if(cant>inv.stock_disponible){
+      showAlert('con-alert','err',`❌ Stock insuficiente. Disponible real: ${inv.stock_disponible} uds.`);
+      btn.disabled=false;btn.textContent='REGISTRAR CONSUMO';
+      return;
+    }
+
     const prod=gp(prodId);
     const costoConsumo=cant*inv.pmp_actual;
     const stockNuevo=inv.stock_total-cant;
@@ -2275,17 +2292,14 @@ async function registrarConsumo(){
       ?{...inv.stock_usuarios}:{};
     stockUsuariosUpd[currentRole]=Math.max(0,(stockUsuariosUpd[currentRole]||0)-cant);
 
-    // Actualizar inventario
-    const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',prodId);
-    const cur=curRows&&curRows.length?curRows[0]:null;
-    if(!cur)throw new Error('Producto no encontrado en inventario');
-
-    await db.from('inventario').update({
+    // Actualizar inventario con valores reales
+    const {error:updErr}=await db.from('inventario').update({
       stock_total:stockNuevo,
       stock_disponible:dispNuevo,
       stock_usuarios:stockUsuariosUpd,
       updated_at:new Date().toISOString()
     }).eq('producto_id',prodId);
+    if(updErr)throw updErr;
 
     // Registrar en movimientos
     await db.from('movimientos').insert({
@@ -2314,7 +2328,7 @@ async function registrarConsumo(){
       null,currentRole
     );
 
-    // Actualizar cache
+    // Actualizar caché con valores reales
     invCache[prodId]={...inv,stock_total:stockNuevo,stock_disponible:dispNuevo,stock_usuarios:stockUsuariosUpd};
 
     closeConsumo();
