@@ -1106,6 +1106,25 @@ function setIva(val){
   calcCompra();
 }
 
+// ══ OBTENER STOCK FRESCO DESDE DB ════════════════════
+async function getStockFresco(productoIds){
+  // Siempre lee desde Supabase — nunca usa caché
+  const {data}=await db.from('inventario').select('*').in('producto_id', productoIds);
+  const mapa={};
+  (data||[]).forEach(r=>{
+    mapa[r.producto_id]=r;
+    // Actualizar caché al mismo tiempo
+    invCache[r.producto_id]={
+      stock_total:r.stock_total,
+      stock_disponible:r.stock_disponible,
+      stock_reservado:r.stock_reservado,
+      pmp_actual:r.pmp_actual,
+      stock_usuarios:r.stock_usuarios||{}
+    };
+  });
+  return mapa;
+}
+
 // ══ GENERAR ID DE VENTA ═══════════════════════════════
 async function generarVentaId(){
   const fecha=today().replace(/-/g,'');
@@ -1140,11 +1159,13 @@ function calcUnit(){
     Stock disponible: <strong style="color:${stockOk?'var(--success)':'var(--danger)'}">${inv.stock_disponible} uds</strong>
     ${!stockOk?'<br><span style="color:var(--danger)">⚠️ STOCK INSUFICIENTE</span>':''}`;
 }
-function mostrarStockDisponible(){
+async function mostrarStockDisponible(){
   const prodId=document.getElementById('v-prod').value;
   const wrap=document.getElementById('stock-disp-wrap');
   if(!prodId){wrap.style.display='none';return;}
-  const inv=invCache[prodId]||{stock_disponible:0,stock_reservado:0};
+  // Refrescar desde DB para mostrar stock real
+  const freshMap=await getStockFresco([prodId]);
+  const inv=freshMap[prodId]||invCache[prodId]||{stock_disponible:0,stock_reservado:0};
   document.getElementById('stock-disp-num').textContent=inv.stock_disponible;
   const resEl=document.getElementById('stock-reservado-num');
   if(inv.stock_reservado>0){
@@ -1193,7 +1214,9 @@ async function registrarVentaUnit(){
   const prodId=document.getElementById('v-prod').value;
   const cant=parseInt(document.getElementById('v-cant').value)||0;
   if(!fecha||!cliente||!prodId||!cant){showAlert('va','err','⚠️ Completa todos los campos obligatorios.');return;}
-  const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,stock_reservado:0,pmp_actual:0};
+  // Leer stock FRESCO desde Supabase (evita caché stale)
+  const stockMap=await getStockFresco([prodId]);
+  const inv=stockMap[prodId]||{stock_total:0,stock_disponible:0,stock_reservado:0,pmp_actual:0};
   if(cant>inv.stock_disponible){showAlert('va','err',`❌ Stock disponible insuficiente. Disponible: ${inv.stock_disponible} uds.`);return;}
   const packs=Math.floor(cant/4),sueltas=cant%4;
   const total=packs*PRECIO_PACK+sueltas*PRECIO_UNIT;
@@ -1284,12 +1307,15 @@ async function registrarVentaPack(){
   const selIds=Array.from(selects).map(s=>s.value).filter(v=>v);
   if(selIds.length<4){showAlert('va','err','⚠️ Selecciona las 4 variedades del pack.');return;}
   const grouped={};selIds.forEach(id=>grouped[id]=(grouped[id]||0)+1);
+  // Leer stock FRESCO desde Supabase para todos los productos del pack
+  const uniqueIds=[...new Set(selIds)];
+  const stockMapPack=await getStockFresco(uniqueIds);
   for(const [id,q] of Object.entries(grouped)){
-    const inv=invCache[id]||{stock_disponible:0};
-    if(q>inv.stock_disponible){showAlert('va','err',`❌ Stock insuficiente de ${gp(id)?.nombre}. Disponible: ${inv.stock_disponible} uds.`);return;}
+    const invP=stockMapPack[id]||{stock_disponible:0};
+    if(q>invP.stock_disponible){showAlert('va','err',`❌ Stock insuficiente de ${gp(id)?.nombre}. Disponible: ${invP.stock_disponible} uds.`);return;}
   }
   const totalNeto=PRECIO_PACK/(1+IVA),ivaMonto=PRECIO_PACK-totalNeto;
-  const costoTotal=selIds.reduce((s,id)=>{const inv=invCache[id]||{pmp_actual:0};return s+inv.pmp_actual;},0);
+  const costoTotal=selIds.reduce((s,id)=>{const invP=stockMapPack[id]||{pmp_actual:0};return s+invP.pmp_actual;},0);
   const margen=totalNeto-costoTotal;
   const margenPct=totalNeto>0?(margen/totalNeto*100):0;
   const ventaId=await generarVentaId();
@@ -1661,6 +1687,15 @@ async function insertCaja(fecha,tipo,origen,desc,monto,formaPago,ventaId){
 // ══ LOAD DATA ═════════════════════════════════════════
 async function loadDash(){
   try{
+    // Cargar saldo inicial si aún no está en caché
+    if(_saldoInicialCache.monto===0){
+      try{
+        const {data:siData}=await db.from('contadores').select('*').eq('clave','saldo_inicial').single();
+        if(siData&&siData.valor){
+          try{_saldoInicialCache=JSON.parse(siData.valor);}catch(e){_saldoInicialCache={monto:parseFloat(siData.valor)||0,fecha:today()};}
+        }
+      }catch(e){}
+    }
     const {data:inv}=await db.from('inventario').select('*');
     invCache={};
     const tbody=document.getElementById('dash-inv');
@@ -2297,22 +2332,51 @@ Costo: ${fmt(costoConsumo)} (PMP: ${fmt(inv.pmp_actual)})`,
 }
 
 // ══ SALDO INICIAL ════════════════════════════════════
+// Caché local del saldo inicial (se carga desde Supabase)
+let _saldoInicialCache = {monto:0, fecha:today()};
+
 function getSaldoInicial(){
-  const s=localStorage.getItem('pec_saldo_inicial');
-  return s?JSON.parse(s):{monto:0,fecha:today()};
+  return _saldoInicialCache;
 }
-function loadSaldoInicial(){
-  const si=getSaldoInicial();
-  const m=document.getElementById('si-monto');
-  const f=document.getElementById('si-fecha');
-  if(m)m.value=si.monto||0;
-  if(f)f.value=si.fecha||today();
+
+async function loadSaldoInicial(){
+  try{
+    const {data}=await db.from('contadores').select('*').eq('clave','saldo_inicial').single();
+    if(data&&data.valor!==undefined){
+      let parsed={monto:0,fecha:today()};
+      try{ parsed=JSON.parse(data.valor); }catch(e){ parsed={monto:parseFloat(data.valor)||0,fecha:today()}; }
+      _saldoInicialCache=parsed;
+    }
+    const m=document.getElementById('si-monto');
+    const f=document.getElementById('si-fecha');
+    if(m)m.value=_saldoInicialCache.monto||0;
+    if(f)f.value=_saldoInicialCache.fecha||today();
+  }catch(e){
+    // Si no existe aún, dejar en 0
+    const m=document.getElementById('si-monto');
+    const f=document.getElementById('si-fecha');
+    if(m)m.value=0;
+    if(f)f.value=today();
+  }
 }
-function saveSaldoInicial(){
+
+async function saveSaldoInicial(){
   const monto=parseFloat(document.getElementById('si-monto').value)||0;
   const fecha=document.getElementById('si-fecha').value||today();
-  localStorage.setItem('pec_saldo_inicial',JSON.stringify({monto,fecha}));
-  showModal('💵 Saldo Inicial Guardado',`Saldo de ${fmt(monto)} registrado al ${fecha}.`,'💵');
+  const valor=JSON.stringify({monto,fecha});
+  try{
+    // Upsert en tabla contadores
+    const {error}=await db.from('contadores').upsert(
+      {clave:'saldo_inicial', valor:valor},
+      {onConflict:'clave'}
+    );
+    if(error)throw error;
+    _saldoInicialCache={monto,fecha};
+    showModal('💵 Saldo Inicial Guardado',`Saldo de ${fmt(monto)} registrado al ${fecha}.`,'💵');
+    loadDash();
+  }catch(e){
+    showAlert('si-alert','err','❌ Error al guardar: '+e.message);
+  }
 }
 
 // ══ ANÁLISIS ══════════════════════════════════════════
