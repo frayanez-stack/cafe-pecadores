@@ -452,6 +452,30 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
   </div>
 </div>
 
+<!-- MODAL PRODUCTO (Crear/Editar) -->
+<div id="modal-producto" style="position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(45,26,8,.45);backdrop-filter:blur(4px);padding:20px;">
+  <div style="background:var(--white);border-radius:var(--r);padding:28px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);border-top:4px solid var(--accent);animation:up .3s ease;max-height:90vh;overflow-y:auto;">
+    <div style="font-family:'Libre Baskerville',serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;" id="modal-prod-titulo">➕ Nuevo Producto</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;">Los campos marcados con * son obligatorios.</div>
+    <div id="prod-alert" class="alert"></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Código * <span style="font-size:9px;color:var(--muted);">(ej: ABC-MOL)</span></label><input type="text" class="fi" id="prod-id" placeholder="XXX-MOL" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="fg"><label class="fl">Variedad *</label><input type="text" class="fi" id="prod-variedad" placeholder="Ej: Pereza" oninput="this.value=this.value.charAt(0).toUpperCase()+this.value.slice(1)"></div>
+      <div class="fg ff"><label class="fl">Nombre completo *</label><input type="text" class="fi" id="prod-nombre" placeholder="Ej: Pereza Molido 250g"></div>
+      <div class="fg"><label class="fl">Formato</label>
+        <select class="fi" id="prod-formato"><option>Molido</option><option>Grano</option><option>Cápsulas</option><option>Otro</option></select>
+      </div>
+      <div class="fg"><label class="fl">P. Unitario ($) *</label><input type="number" class="fi" id="prod-precio-u" min="0" step="100" placeholder="9000"></div>
+      <div class="fg"><label class="fl">P. Pack x4 ($) *</label><input type="number" class="fi" id="prod-precio-p" min="0" step="100" placeholder="32000"></div>
+      <div class="fg ff"><label class="fl">Stock mínimo (alerta)</label><input type="number" class="fi" id="prod-stock-min" min="1" value="8"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button onclick="closeModalProducto()" class="btn-sec" style="flex:1;">CANCELAR</button>
+      <button id="btn-prod-save" onclick="guardarProducto()" style="flex:1;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:var(--r2);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px;cursor:pointer;">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
@@ -733,13 +757,13 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
         <button class="btn-primary mt8" onclick="savePasswords()">🔑 GUARDAR CONTRASEÑAS</button>
       </div>
       <div class="card">
-        <div class="ct">💲 Mantenedor de Precios</div>
-        <div id="precios-alert" class="alert"></div>
+        <div class="ct">🗂️ Mantenedor de Productos</div>
+        <div id="mant-alert" class="alert"></div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5;">
-          Actualiza los precios de venta por producto. El precio pack x4 aplica cuando se venden 4 o más unidades.
+          Crea, edita y gestiona el catálogo de productos. Los cambios se reflejan inmediatamente en toda la app.
         </div>
-        <div id="precios-list"></div>
-        <button class="btn-primary mt12" onclick="savePrecios()">💾 GUARDAR PRECIOS</button>
+        <button class="btn-primary" onclick="abrirNuevoProducto()" style="margin-bottom:14px;">➕ NUEVO PRODUCTO</button>
+        <div id="mant-prod-list"></div>
       </div>
       <div class="card">
         <div class="ct">📦 Catálogo</div>
@@ -899,7 +923,8 @@ const SHEETS_URL='https://script.google.com/macros/s/AKfycbwVds4mR1lStdMgdaE8Ttd
 const db=supabase.createClient(SURL,SKEY);
 
 // ══ CATÁLOGO ══════════════════════════════════════════
-const CAT=[
+// CAT se carga desde Supabase al iniciar — editable desde Ajustes
+let CAT=[
   {id:'IRA-MOL',nombre:'Ira Molido 250g',      variedad:'Ira',      formato:'Molido'},
   {id:'IRA-GRA',nombre:'Ira Grano 250g',       variedad:'Ira',      formato:'Grano'},
   {id:'SOB-MOL',nombre:'Soberbia Molido 250g', variedad:'Soberbia', formato:'Molido'},
@@ -913,8 +938,8 @@ const CAT=[
   {id:'PER-MOL',nombre:'Pereza Molido 250g',   variedad:'Pereza',   formato:'Molido'},
   {id:'PER-GRA',nombre:'Pereza Grano 250g',    variedad:'Pereza',   formato:'Grano'},
 ];
-// IDs de productos Pereza (precio diferenciado)
-const PEREZA_IDS=['PER-MOL','PER-GRA'];
+// IDs de productos Pereza (precio diferenciado) — se actualiza al cargar
+let PEREZA_IDS=['PER-MOL','PER-GRA'];
 // Precios cargados desde Supabase (editables en Ajustes)
 let PRECIO_UNIT=9000, PRECIO_PACK=32000;
 const IVA=0.19;
@@ -1101,7 +1126,7 @@ function showPage(p,btn){
   if(p==='compras')loadCompras();
   if(p==='caja')loadCaja();
   if(p==='inv')loadInv();
-  if(p==='ajustes'){loadUmbrales();renderUmbrales();loadSaldoInicial();renderPrecios();}
+  if(p==='ajustes'){loadUmbrales();renderUmbrales();loadSaldoInicial();renderMantenedorProductos();}
   if(p==='analisis')loadAnalisis();
 }
 function showAnalysisTab(tab,btn){
@@ -2400,72 +2425,113 @@ Costo: ${fmt(costoConsumo)} (PMP: ${fmt(inv.pmp_actual)})`,
 // ══ MANTENEDOR DE PRECIOS ════════════════════════════
 async function cargarPrecios(){
   try{
-    const {data}=await db.from('productos').select('id,precio_unitario,precio_pack');
+    const {data}=await db.from('productos').select('*').order('id');
     if(data&&data.length){
+      // Actualizar CAT desde DB (incluye productos nuevos creados desde Ajustes)
+      CAT=data.map(p=>({
+        id:p.id,
+        nombre:p.nombre,
+        variedad:p.variedad||p.id.split('-')[0],
+        formato:p.formato||'Molido'
+      }));
+      // Actualizar PEREZA_IDS dinámicamente
+      PEREZA_IDS=data.filter(p=>p.variedad==='Pereza').map(p=>p.id);
       data.forEach(p=>{
-        preciosCache[p.id]={precio_unitario:p.precio_unitario||8700,precio_pack:p.precio_pack||32000};
+        preciosCache[p.id]={precio_unitario:p.precio_unitario||9000,precio_pack:p.precio_pack||32000};
       });
-      // Actualizar constantes globales con precio del primer producto
-      // (todos tienen el mismo precio base por ahora)
-      const primero=data[0];
-      PRECIO_UNIT=primero.precio_unitario||8700;
-      PRECIO_PACK=primero.precio_pack||32000;
+      // Precio base = promedio de productos no-Pereza
+      const noPereza=data.filter(p=>!PEREZA_IDS.includes(p.id));
+      if(noPereza.length){
+        PRECIO_UNIT=noPereza[0].precio_unitario||9000;
+        PRECIO_PACK=noPereza[0].precio_pack||32000;
+      }
+      populateDropdowns();
+      renderCatalogo();
+      buildPackItems();
     }
   }catch(e){console.warn('No se pudieron cargar precios:',e.message);}
 }
 
-function renderPrecios(){
-  const el=document.getElementById('precios-list');if(!el)return;
-  el.innerHTML=CAT.map(p=>{
-    const pr=preciosCache[p.id]||{precio_unitario:PRECIO_UNIT,precio_pack:PRECIO_PACK};
-    return `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);">
-      <div style="min-width:140px;">
-        <div style="font-size:12px;font-weight:600;color:var(--text2);">${p.nombre}</div>
-        <div style="font-size:10px;color:var(--muted);">${p.id}</div>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <div>
-          <label style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:4px;">P. Unitario ($)</label>
-          <input type="number" id="pu-${p.id}" value="${pr.precio_unitario}" min="0" step="100"
-            style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r2);font-size:13px;text-align:right;background:var(--bg2);color:var(--text);font-family:'Inter',sans-serif;">
-        </div>
-        <div>
-          <label style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:4px;">P. Pack x4 ($)</label>
-          <input type="number" id="pp-${p.id}" value="${pr.precio_pack}" min="0" step="100"
-            style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r2);font-size:13px;text-align:right;background:var(--bg2);color:var(--text);font-family:'Inter',sans-serif;">
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+let editandoProductoId=null;
+
+function abrirNuevoProducto(){
+  editandoProductoId=null;
+  document.getElementById('modal-prod-titulo').textContent='➕ Nuevo Producto';
+  document.getElementById('prod-id').value='';
+  document.getElementById('prod-id').disabled=false;
+  document.getElementById('prod-nombre').value='';
+  document.getElementById('prod-variedad').value='';
+  document.getElementById('prod-formato').value='Molido';
+  document.getElementById('prod-precio-u').value=PRECIO_UNIT;
+  document.getElementById('prod-precio-p').value=PRECIO_PACK;
+  document.getElementById('prod-stock-min').value=8;
+  document.getElementById('prod-alert').style.display='none';
+  document.getElementById('modal-producto').style.display='flex';
 }
 
-async function savePrecios(){
+function abrirEditarProducto(id){
+  const p=CAT.find(x=>x.id===id);
+  const pr=preciosCache[id]||{precio_unitario:PRECIO_UNIT,precio_pack:PRECIO_PACK};
+  if(!p)return;
+  editandoProductoId=id;
+  document.getElementById('modal-prod-titulo').textContent='✏️ Editar Producto';
+  document.getElementById('prod-id').value=id;
+  document.getElementById('prod-id').disabled=true;
+  document.getElementById('prod-nombre').value=p.nombre;
+  document.getElementById('prod-variedad').value=p.variedad||'';
+  document.getElementById('prod-formato').value=p.formato||'Molido';
+  document.getElementById('prod-precio-u').value=pr.precio_unitario;
+  document.getElementById('prod-precio-p').value=pr.precio_pack;
+  document.getElementById('prod-alert').style.display='none';
+  document.getElementById('modal-producto').style.display='flex';
+}
+
+function closeModalProducto(){
+  document.getElementById('modal-producto').style.display='none';
+  editandoProductoId=null;
+}
+
+async function guardarProducto(){
+  const id=document.getElementById('prod-id').value.trim().toUpperCase();
+  const nombre=document.getElementById('prod-nombre').value.trim();
+  const variedad=document.getElementById('prod-variedad').value.trim();
+  const formato=document.getElementById('prod-formato').value;
+  const pu=parseInt(document.getElementById('prod-precio-u').value)||9000;
+  const pp=parseInt(document.getElementById('prod-precio-p').value)||32000;
+  const sm=parseInt(document.getElementById('prod-stock-min').value)||8;
+  if(!id||!nombre||!variedad){showAlert('prod-alert','err','⚠️ Código, nombre y variedad son obligatorios.');return;}
+  const btn=document.getElementById('btn-prod-save');
+  btn.disabled=true;btn.textContent='GUARDANDO...';
   try{
-    let updated=0;
-    for(const p of CAT){
-      const pu=parseInt(document.getElementById('pu-'+p.id)?.value)||PRECIO_UNIT;
-      const pp=parseInt(document.getElementById('pp-'+p.id)?.value)||PRECIO_PACK;
-      const {error}=await db.from('productos').update({
-        precio_unitario:pu,
-        precio_pack:pp
-      }).eq('id',p.id);
-      if(!error){
-        preciosCache[p.id]={precio_unitario:pu,precio_pack:pp};
-        updated++;
-      }
-    }
-    // Actualizar constantes globales con los valores del primer producto
-    const primero=CAT[0];
-    if(preciosCache[primero.id]){
-      PRECIO_UNIT=preciosCache[primero.id].precio_unitario;
-      PRECIO_PACK=preciosCache[primero.id].precio_pack;
-    }
+    const prodData={id,nombre,variedad,formato,precio_unitario:pu,precio_pack:pp,stock_minimo:sm};
+    const {error}=await db.from('productos').upsert(prodData,{onConflict:'id'});
+    if(error)throw error;
+    closeModalProducto();
+    await cargarPrecios();
+    renderMantenedorProductos();
     renderCatalogo();
-    showModal('💲 Precios Actualizados',`${updated} productos actualizados correctamente.`,'💲');
-    showAlert('precios-alert','ok',`✅ ${updated} precios guardados en Supabase.`);
+    showModal(editandoProductoId?'✏️ Producto Actualizado':'➕ Producto Creado',
+      `${nombre} guardado correctamente.`,editandoProductoId?'✏️':'➕');
   }catch(e){
-    showAlert('precios-alert','err','❌ Error: '+e.message);
+    showAlert('prod-alert','err','❌ Error: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='GUARDAR';
   }
+}
+
+function renderMantenedorProductos(){
+  const el=document.getElementById('mant-prod-list');if(!el)return;
+  if(!CAT.length){el.innerHTML='<div class="er">Sin productos. Agrega el primero.</div>';return;}
+  el.innerHTML=CAT.map(p=>{
+    const pr=preciosCache[p.id]||{precio_unitario:PRECIO_UNIT,precio_pack:PRECIO_PACK};
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+      <div style="flex:1;min-width:120px;">
+        <div style="font-size:12px;font-weight:600;color:${vcls(p.variedad)?'var(--text2)':'var(--text2)'};" class="${vcls(p.variedad)}">${p.nombre}</div>
+        <div style="font-size:10px;color:var(--muted);">${p.id} · ${fmt(pr.precio_unitario)} unit. · ${fmt(pr.precio_pack)} pack</div>
+      </div>
+      <button onclick="abrirEditarProducto('${p.id}')" style="background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;font-size:10px;font-weight:700;padding:5px 12px;cursor:pointer;">✏️ Editar</button>
+    </div>`;
+  }).join('');
 }
 
 // ══ SALDO INICIAL ════════════════════════════════════
@@ -2509,6 +2575,9 @@ async function saveSaldoInicial(){
     );
     if(error)throw error;
     _saldoInicialCache={monto,fecha};
+    // Limpiar campos después de guardar
+    document.getElementById('si-monto').value='';
+    document.getElementById('si-fecha').value='';
     showModal('💵 Saldo Inicial Guardado',`Saldo de ${fmt(monto)} registrado al ${fecha}.`,'💵');
     loadDash();
   }catch(e){
