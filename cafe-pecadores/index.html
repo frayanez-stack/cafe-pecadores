@@ -20,6 +20,7 @@
   --accent:#c9892a; --accent2:#b5761a;
   --text:#1a0f08; --text2:#5a3a1a; --muted:#9a7550;
   --ira:#c0392b; --soberbia:#1a6fa8; --gula:#b8760a; --lujuria:#7d3aad;
+  --envidia:#1e8449; --pereza:#6c7a89;
   --success:#1e7a44; --danger:#c0392b; --warn:#b5611a;
   --reservado:#7d3aad;
   --shadow:0 4px 20px rgba(0,0,0,0.06);
@@ -137,6 +138,8 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
 .v-soberbia{color:var(--soberbia);font-weight:600;}
 .v-gula{color:var(--gula);font-weight:600;}
 .v-lujuria{color:var(--lujuria);font-weight:600;}
+.v-envidia{color:var(--envidia);font-weight:600;}
+.v-pereza{color:var(--pereza);font-weight:600;}
 
 /* ALERTS */
 .alert{padding:11px 14px;border-radius:var(--r2);font-size:12px;margin-bottom:12px;display:none;line-height:1.4;}
@@ -603,7 +606,7 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
         <div class="ct">🔒 RESERVADOS PENDIENTES DE PAGO</div>
         <div class="tw">
           <table>
-            <thead><tr><th>ID Venta</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Total</th><th>Usuario</th><th>Acción</th></tr></thead>
+            <thead><tr><th>ID Venta</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Total</th><th>Usuario</th><th colspan="3">Acciones</th></tr></thead>
             <tbody id="res-tbody"></tbody>
           </table>
         </div>
@@ -728,6 +731,15 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
           <div class="fg"><label class="fl">F.Y.</label><input type="password" class="fi" id="p-FY" placeholder="Nueva contraseña"></div>
         </div>
         <button class="btn-primary mt8" onclick="savePasswords()">🔑 GUARDAR CONTRASEÑAS</button>
+      </div>
+      <div class="card">
+        <div class="ct">💲 Mantenedor de Precios</div>
+        <div id="precios-alert" class="alert"></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5;">
+          Actualiza los precios de venta por producto. El precio pack x4 aplica cuando se venden 4 o más unidades.
+        </div>
+        <div id="precios-list"></div>
+        <button class="btn-primary mt12" onclick="savePrecios()">💾 GUARDAR PRECIOS</button>
       </div>
       <div class="card">
         <div class="ct">📦 Catálogo</div>
@@ -888,16 +900,26 @@ const db=supabase.createClient(SURL,SKEY);
 
 // ══ CATÁLOGO ══════════════════════════════════════════
 const CAT=[
-  {id:'IRA-MOL',nombre:'Ira Molido 250g',     variedad:'Ira',      formato:'Molido'},
-  {id:'IRA-GRA',nombre:'Ira Grano 250g',      variedad:'Ira',      formato:'Grano'},
-  {id:'SOB-MOL',nombre:'Soberbia Molido 250g',variedad:'Soberbia', formato:'Molido'},
-  {id:'SOB-GRA',nombre:'Soberbia Grano 250g', variedad:'Soberbia', formato:'Grano'},
-  {id:'GUL-MOL',nombre:'Gula Molido 250g',    variedad:'Gula',     formato:'Molido'},
-  {id:'GUL-GRA',nombre:'Gula Grano 250g',     variedad:'Gula',     formato:'Grano'},
-  {id:'LUJ-MOL',nombre:'Lujuria Molido 250g', variedad:'Lujuria',  formato:'Molido'},
-  {id:'LUJ-GRA',nombre:'Lujuria Grano 250g',  variedad:'Lujuria',  formato:'Grano'},
+  {id:'IRA-MOL',nombre:'Ira Molido 250g',      variedad:'Ira',      formato:'Molido'},
+  {id:'IRA-GRA',nombre:'Ira Grano 250g',       variedad:'Ira',      formato:'Grano'},
+  {id:'SOB-MOL',nombre:'Soberbia Molido 250g', variedad:'Soberbia', formato:'Molido'},
+  {id:'SOB-GRA',nombre:'Soberbia Grano 250g',  variedad:'Soberbia', formato:'Grano'},
+  {id:'GUL-MOL',nombre:'Gula Molido 250g',     variedad:'Gula',     formato:'Molido'},
+  {id:'GUL-GRA',nombre:'Gula Grano 250g',      variedad:'Gula',     formato:'Grano'},
+  {id:'LUJ-MOL',nombre:'Lujuria Molido 250g',  variedad:'Lujuria',  formato:'Molido'},
+  {id:'LUJ-GRA',nombre:'Lujuria Grano 250g',   variedad:'Lujuria',  formato:'Grano'},
+  {id:'ENV-MOL',nombre:'Envidia Molido 250g',  variedad:'Envidia',  formato:'Molido'},
+  {id:'ENV-GRA',nombre:'Envidia Grano 250g',   variedad:'Envidia',  formato:'Grano'},
+  {id:'PER-MOL',nombre:'Pereza Molido 250g',   variedad:'Pereza',   formato:'Molido'},
+  {id:'PER-GRA',nombre:'Pereza Grano 250g',    variedad:'Pereza',   formato:'Grano'},
 ];
-const PRECIO_UNIT=8700, PRECIO_PACK=32000, IVA=0.19;
+// IDs de productos Pereza (precio diferenciado)
+const PEREZA_IDS=['PER-MOL','PER-GRA'];
+// Precios cargados desde Supabase (editables en Ajustes)
+let PRECIO_UNIT=9000, PRECIO_PACK=32000;
+const IVA=0.19;
+// Cache de precios por producto {producto_id: {precio_unitario, precio_pack}}
+let preciosCache={};
 const DEFAULT_PASS={AR:'ar#8520',JG:'jg#3741',MS:'ms#6294',FY:'fy#1863'};
 
 let currentRole=null, invCache={}, umbralesCache={}, deferredInstall=null;
@@ -969,6 +991,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const d=today();
   ['v-fecha','p-fecha','c-fecha','g-fecha'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=d;});
   populateDropdowns();renderCatalogo();buildPackItems();
+  await cargarPrecios();
 
   // Restore session if exists
   const savedSession = localStorage.getItem('pec_session');
@@ -1004,7 +1027,10 @@ function populateDropdowns(){
 }
 function renderCatalogo(){
   const tb=document.getElementById('prodtbody');if(!tb)return;
-  tb.innerHTML=CAT.map(p=>`<tr><td class="tm td">${p.id}</td><td class="${vcls(p.variedad)}">${p.nombre}</td><td class="td">${p.variedad}</td><td class="tm">${fmt(PRECIO_UNIT)}</td><td class="tm">${fmt(PRECIO_PACK)}</td></tr>`).join('');
+  tb.innerHTML=CAT.map(p=>{
+    const pr=preciosCache[p.id]||{precio_unitario:PRECIO_UNIT,precio_pack:PRECIO_PACK};
+    return `<tr><td class="tm td">${p.id}</td><td class="${vcls(p.variedad)}">${p.nombre}</td><td class="td">${p.variedad}</td><td class="tm">${fmt(pr.precio_unitario)}</td><td class="tm">${fmt(pr.precio_pack)}</td></tr>`;
+  }).join('');
 }
 function renderUmbrales(){
   const el=document.getElementById('umbral-list');if(!el)return;
@@ -1043,7 +1069,7 @@ function doLogin(){
   err.style.display='none';currentRole=role;enterApp();
 }
 function doLogout(){currentRole=null;localStorage.removeItem('pec_session');document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('lp').value='';}
-function enterApp(){
+async function enterApp(){
   localStorage.setItem('pec_session', currentRole);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
@@ -1075,7 +1101,7 @@ function showPage(p,btn){
   if(p==='compras')loadCompras();
   if(p==='caja')loadCaja();
   if(p==='inv')loadInv();
-  if(p==='ajustes'){loadUmbrales();renderUmbrales();loadSaldoInicial();}
+  if(p==='ajustes'){loadUmbrales();renderUmbrales();loadSaldoInicial();renderPrecios();}
   if(p==='analisis')loadAnalisis();
 }
 function showAnalysisTab(tab,btn){
@@ -1109,6 +1135,13 @@ function setIva(val){
   document.getElementById('iva-si').classList.toggle('active',val);
   document.getElementById('iva-no').classList.toggle('active',!val);
   calcCompra();
+}
+
+// ══ PRECIO PACK DINÁMICO (según unidades de Pereza) ══
+function calcPrecioPack(selIds){
+  // $32.000 base + $1.000 por cada unidad de Pereza incluida
+  const qtyPereza = selIds.filter(id=>PEREZA_IDS.includes(id)).length;
+  return 32000 + (qtyPereza * 1000);
 }
 
 // ══ OBTENER STOCK FRESCO DESDE DB ════════════════════
@@ -1149,8 +1182,13 @@ function calcUnit(){
   const cant=parseInt(document.getElementById('v-cant').value)||0;
   const prev=document.getElementById('v-prev');
   if(!prodId||!cant){prev.style.display='none';return;}
+  const esPereza=PEREZA_IDS.includes(prodId);
+  const pr=preciosCache[prodId]||{
+    precio_unitario:esPereza?10000:PRECIO_UNIT,
+    precio_pack:esPereza?36000:PRECIO_PACK
+  };
   const packs=Math.floor(cant/4),sueltas=cant%4;
-  const total=packs*PRECIO_PACK+sueltas*PRECIO_UNIT;
+  const total=packs*pr.precio_pack+sueltas*pr.precio_unitario;
   document.getElementById('v-precio').value=(total/cant).toFixed(0);
   const totalNeto=total/(1+IVA),ivaV=total-totalNeto;
   const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,pmp_actual:0};
@@ -1190,8 +1228,11 @@ function calcPack(){
   prev.style.display='block';
   if(total<4){prev.innerHTML=`Selecciona ${4-total} variedad(es) más para completar el pack.`;return;}
   const grouped={};selIds.forEach(id=>grouped[id]=(grouped[id]||0)+1);
-  const totalNeto=PRECIO_PACK/(1+IVA);
-  prev.innerHTML=`📦 Pack completo — <strong>${fmt(PRECIO_PACK)}</strong> (Neto: ${fmt(totalNeto)})<br>
+  const precioPack=calcPrecioPack(selIds);
+  const qtyPereza=selIds.filter(id=>PEREZA_IDS.includes(id)).length;
+  const totalNeto=precioPack/(1+IVA);
+  const detPereza=qtyPereza>0?` <span style="color:var(--pereza);font-size:11px;">(incluye ${qtyPereza} Pereza)</span>`:'';
+  prev.innerHTML=`📦 Pack completo — <strong>${fmt(precioPack)}</strong>${detPereza} (Neto: ${fmt(totalNeto)})<br>
     ${Object.entries(grouped).map(([id,q])=>`${q}× ${gp(id)?.variedad}`).join(', ')}`;
 }
 function calcCompra(){
@@ -1319,7 +1360,8 @@ async function registrarVentaPack(){
     const invP=stockMapPack[id]||{stock_disponible:0};
     if(q>invP.stock_disponible){showAlert('va','err',`❌ Stock insuficiente de ${gp(id)?.nombre}. Disponible: ${invP.stock_disponible} uds.`);return;}
   }
-  const totalNeto=PRECIO_PACK/(1+IVA),ivaMonto=PRECIO_PACK-totalNeto;
+  const precioPack=calcPrecioPack(selIds);
+  const totalNeto=precioPack/(1+IVA),ivaMonto=precioPack-totalNeto;
   const costoTotal=selIds.reduce((s,id)=>{const invP=stockMapPack[id]||{pmp_actual:0};return s+invP.pmp_actual;},0);
   const margen=totalNeto-costoTotal;
   const margenPct=totalNeto>0?(margen/totalNeto*100):0;
@@ -1331,7 +1373,7 @@ async function registrarVentaPack(){
       venta_id:ventaId,fecha,canal,cliente,forma_pago:pago,
       tipo_venta:'Pack x4',estado:estadoPago,
       producto_id:selIds[0],producto_nombre:'Pack x4 — Mixto',
-      cantidad:4,precio_unitario:PRECIO_PACK/4,total_venta:PRECIO_PACK,
+      cantidad:4,precio_unitario:precioPack/4,total_venta:precioPack,
       total_neto:totalNeto,iva_monto:ivaMonto,
       packs:1,unidades_sueltas:0,
       costo_total_pmp:costoTotal,margen_pct:margenPct,
@@ -1345,13 +1387,13 @@ async function registrarVentaPack(){
       await actualizarInvVenta(id,gp(id),inv,q,estadoPago,null,fecha,vd.id,ventaId);
     }
     if(estadoPago==='PAGADO'){
-      const saldoPack=await insertCaja(fecha,'Ingreso','Venta Pack',`Pack x4 — ${cliente}`,PRECIO_PACK,pago,ventaId);
-      await sheetsAppendCaja(fecha,'Ingreso','Venta Pack',ventaId,`Pack x4 — ${cliente}`,PRECIO_PACK,pago,saldoPack,currentRole);
+      const saldoPack=await insertCaja(fecha,'Ingreso','Venta Pack',`Pack x4 — ${cliente}`,precioPack,pago,ventaId);
+      await sheetsAppendCaja(fecha,'Ingreso','Venta Pack',ventaId,`Pack x4 — ${cliente}`,precioPack,pago,saldoPack,currentRole);
     }
     // Sync venta pack a Sheets
     await sheetsAppendVenta(
       {fecha,cliente,canal:document.getElementById('p-canal').value,productoNombre:'Pack x4 — Mixto',cantidad:4},
-      PRECIO_PACK,PRECIO_PACK/(1+IVA),PRECIO_PACK-(PRECIO_PACK/(1+IVA)),
+      precioPack,precioPack/(1+IVA),precioPack-(precioPack/(1+IVA)),
       margenPct,ventaId,estadoPago,pago,'Pack x4'
     );
     // Sync movimientos pack a Sheets
@@ -1798,15 +1840,20 @@ async function loadReservados(){
   try{
     const {data}=await db.from('ventas').select('*').eq('estado','RESERVADO').order('created_at',{ascending:false});
     if(!data||!data.length){tb.innerHTML=`<tr><td colspan="7" class="er">Sin reservas pendientes.</td></tr>`;return;}
-    tb.innerHTML=data.map(r=>`<tr>
-      <td><span class="vid-badge" style="font-size:11px;">${r.venta_id}</span></td>
-      <td class="td">${r.fecha}</td>
-      <td style="font-weight:600;">${r.cliente}</td>
-      <td class="td">${r.producto_nombre}</td>
-      <td class="tm tres">${fmt(r.total_venta)}</td>
-      <td><span class="badge b-info">${r.usuario}</span></td>
-      <td><button onclick='showModalPago(${JSON.stringify(r)})' style="background:linear-gradient(135deg,var(--reservado),#9b59b6);border:none;border-radius:var(--r2);color:var(--white);font-size:10px;font-weight:700;letter-spacing:1px;padding:6px 12px;cursor:pointer;">💳 COBRAR</button></td>
-    </tr>`).join('');
+    tb.innerHTML=data.map(r=>{
+      const rJson=JSON.stringify(r).replace(/'/g,"\\'");
+      return `<tr>
+        <td><span class="vid-badge" style="font-size:11px;">${r.venta_id}</span></td>
+        <td class="td">${r.fecha}</td>
+        <td style="font-weight:600;">${r.cliente}</td>
+        <td class="td">${r.producto_nombre}</td>
+        <td class="tm tres">${fmt(r.total_venta)}</td>
+        <td><span class="badge b-info">${r.usuario}</span></td>
+        <td><button onclick='showModalPago(${JSON.stringify(r)})' style="background:linear-gradient(135deg,var(--reservado),#9b59b6);border:none;border-radius:var(--r2);color:var(--white);font-size:10px;font-weight:700;letter-spacing:1px;padding:6px 12px;cursor:pointer;">💳 COBRAR</button></td>
+        <td><button onclick="abrirEditar('venta','${r.id}',JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(r))}')))" style="background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;font-size:9px;font-weight:700;padding:5px 10px;cursor:pointer;">✏️</button></td>
+        <td><button onclick="abrirAnular('venta','${r.id}',JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(r))}')))" style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:4px;font-size:9px;font-weight:700;padding:5px 10px;cursor:pointer;">🗑️</button></td>
+      </tr>`;
+    }).join('');
   }catch(e){tb.innerHTML=`<tr><td colspan="7" class="er" style="color:var(--danger)">Error</td></tr>`;}
 }
 
@@ -2350,6 +2397,77 @@ Costo: ${fmt(costoConsumo)} (PMP: ${fmt(inv.pmp_actual)})`,
   }
 }
 
+// ══ MANTENEDOR DE PRECIOS ════════════════════════════
+async function cargarPrecios(){
+  try{
+    const {data}=await db.from('productos').select('id,precio_unitario,precio_pack');
+    if(data&&data.length){
+      data.forEach(p=>{
+        preciosCache[p.id]={precio_unitario:p.precio_unitario||8700,precio_pack:p.precio_pack||32000};
+      });
+      // Actualizar constantes globales con precio del primer producto
+      // (todos tienen el mismo precio base por ahora)
+      const primero=data[0];
+      PRECIO_UNIT=primero.precio_unitario||8700;
+      PRECIO_PACK=primero.precio_pack||32000;
+    }
+  }catch(e){console.warn('No se pudieron cargar precios:',e.message);}
+}
+
+function renderPrecios(){
+  const el=document.getElementById('precios-list');if(!el)return;
+  el.innerHTML=CAT.map(p=>{
+    const pr=preciosCache[p.id]||{precio_unitario:PRECIO_UNIT,precio_pack:PRECIO_PACK};
+    return `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="min-width:140px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);">${p.nombre}</div>
+        <div style="font-size:10px;color:var(--muted);">${p.id}</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div>
+          <label style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:4px;">P. Unitario ($)</label>
+          <input type="number" id="pu-${p.id}" value="${pr.precio_unitario}" min="0" step="100"
+            style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r2);font-size:13px;text-align:right;background:var(--bg2);color:var(--text);font-family:'Inter',sans-serif;">
+        </div>
+        <div>
+          <label style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:4px;">P. Pack x4 ($)</label>
+          <input type="number" id="pp-${p.id}" value="${pr.precio_pack}" min="0" step="100"
+            style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r2);font-size:13px;text-align:right;background:var(--bg2);color:var(--text);font-family:'Inter',sans-serif;">
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function savePrecios(){
+  try{
+    let updated=0;
+    for(const p of CAT){
+      const pu=parseInt(document.getElementById('pu-'+p.id)?.value)||PRECIO_UNIT;
+      const pp=parseInt(document.getElementById('pp-'+p.id)?.value)||PRECIO_PACK;
+      const {error}=await db.from('productos').update({
+        precio_unitario:pu,
+        precio_pack:pp
+      }).eq('id',p.id);
+      if(!error){
+        preciosCache[p.id]={precio_unitario:pu,precio_pack:pp};
+        updated++;
+      }
+    }
+    // Actualizar constantes globales con los valores del primer producto
+    const primero=CAT[0];
+    if(preciosCache[primero.id]){
+      PRECIO_UNIT=preciosCache[primero.id].precio_unitario;
+      PRECIO_PACK=preciosCache[primero.id].precio_pack;
+    }
+    renderCatalogo();
+    showModal('💲 Precios Actualizados',`${updated} productos actualizados correctamente.`,'💲');
+    showAlert('precios-alert','ok',`✅ ${updated} precios guardados en Supabase.`);
+  }catch(e){
+    showAlert('precios-alert','err','❌ Error: '+e.message);
+  }
+}
+
 // ══ SALDO INICIAL ════════════════════════════════════
 // Caché local del saldo inicial (se carga desde Supabase)
 let _saldoInicialCache = {monto:0, fecha:today()};
@@ -2673,7 +2791,7 @@ async function guardarEdicion(){
     }
     closeEditar();
     showModal('✅ Registro Actualizado','Los cambios han sido guardados correctamente.','✏️');
-    if(tipo==='venta')loadVentas();
+    if(tipo==='venta'){loadVentas();loadReservados();}
     if(tipo==='compra')loadCompras();
     if(tipo==='gasto')loadCaja();
   }catch(e){
