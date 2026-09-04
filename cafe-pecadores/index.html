@@ -1005,7 +1005,7 @@ function initEmailJS(){
   }
 }
 
-window.addEventListener('DOMContentLoaded',()=>{
+window.addEventListener('DOMContentLoaded',async()=>{
   // Esperar a que SDK cargue si aún no está listo
   if(typeof emailjs !== 'undefined'){
     initEmailJS();
