@@ -994,6 +994,38 @@ function showModalPago(venta){
 }
 function closeModalPago(){document.getElementById('modal-pago').style.display='none';ventaPendientePago=null;}
 
+// ══ PING AUTOMÁTICO SUPABASE (evita pausa por inactividad) ══
+function iniciarPingSupabase(){
+  setInterval(async()=>{
+    try{
+      await db.from('contadores').select('clave').limit(1);
+      console.log('✅ Ping Supabase OK —', new Date().toLocaleString());
+    }catch(e){
+      console.warn('⚠️ Ping Supabase falló:', e.message);
+      // Notificar por correo si el ping falla
+      if(typeof emailjs !== 'undefined'){
+        const fecha = new Date().toLocaleString('es-CL',{timeZone:'America/Santiago'});
+        for(const email of NOTIFY_EMAILS){
+          try{
+            await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+              to_email: email,
+              tipo: '⚠️ ALERTA SISTEMA',
+              producto: 'Conexión Supabase',
+              cantidad: '—',
+              usuario: 'Sistema automático',
+              canal: '—',
+              precio: '—',
+              notas: 'El ping automático a Supabase falló el ' + fecha + '. Error: ' + e.message + '. La base de datos podría estar pausada. Ingresa a https://supabase.com para verificar.'
+            });
+          }catch(mailErr){
+            console.warn('No se pudo enviar alerta de ping:', mailErr.message);
+          }
+        }
+      }
+    }
+  }, 24*60*60*1000);
+}
+
 // ══ INIT ══════════════════════════════════════════════
 // EmailJS: inicializar cuando el SDK esté listo
 function initEmailJS(){
@@ -1095,6 +1127,7 @@ function doLogin(){
 }
 function doLogout(){currentRole=null;localStorage.removeItem('pec_session');document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('lp').value='';}
 async function enterApp(){
+  iniciarPingSupabase();
   localStorage.setItem('pec_session', currentRole);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
