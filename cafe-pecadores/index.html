@@ -2112,15 +2112,18 @@ function closeTraspaso(){
   document.getElementById('modal-traspaso').style.display='none';
 }
 
-function updateTraspasoInfo(){
+async function updateTraspasoInfo(){
   const prodId=document.getElementById('tr-prod').value;
   const origen=document.getElementById('tr-origen').value;
   const cant=parseInt(document.getElementById('tr-cant').value)||0;
   const info=document.getElementById('tr-info');
   if(!prodId){info.style.display='none';return;}
-  const inv=invCache[prodId]||{stock_usuarios:{}};
-  const stockOrigen=(inv.stock_usuarios&&inv.stock_usuarios[origen])||0;
+  // Siempre leer stock fresco desde Supabase — nunca usar caché
   info.style.display='block';
+  info.innerHTML='<span style="color:var(--text-muted)">Consultando stock...</span>';
+  const freshMap=await getStockFresco([prodId]);
+  const inv=freshMap[prodId]||{stock_usuarios:{}};
+  const stockOrigen=(inv.stock_usuarios&&inv.stock_usuarios[origen])||0;
   info.innerHTML=`Stock de ${origen}: <strong style="color:${stockOrigen>0?'var(--success)':'var(--danger)'}">${stockOrigen} uds</strong>
     ${cant>0?`<br>Tras traspaso: ${origen}: <strong>${stockOrigen-cant}</strong> → Destino: <strong>+${cant}</strong>`:''}
     ${cant>stockOrigen?'<br><span style="color:var(--danger)">⚠️ Stock insuficiente en origen</span>':''}`;
@@ -2135,18 +2138,21 @@ async function registrarTraspaso(){
   if(!prodId||!cant){showAlert('tr-alert','err','⚠️ Completa todos los campos.');return;}
   if(origen===destino){showAlert('tr-alert','err','⚠️ Origen y destino deben ser diferentes.');return;}
 
-  const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,stock_reservado:0,stock_usuarios:{},pmp_actual:0};
-  const stockOrigen=(inv.stock_usuarios&&inv.stock_usuarios[origen])||0;
-  if(cant>stockOrigen){showAlert('tr-alert','err',`❌ Stock insuficiente. ${origen} tiene ${stockOrigen} uds.`);return;}
-
   const btn=document.getElementById('btn-traspaso');
   btn.disabled=true;btn.textContent='PROCESANDO...';
 
   try{
     const prod=gp(prodId);
+    // Leer stock fresco desde Supabase antes de validar — nunca usar caché
     const {data:curRows}=await db.from('inventario').select('*').eq('producto_id',prodId);
     const cur=curRows&&curRows.length?curRows[0]:null;
     if(!cur)throw new Error('Producto no encontrado en inventario');
+    const stockOrigen=(cur.stock_usuarios&&cur.stock_usuarios[origen])||0;
+    if(cant>stockOrigen){
+      showAlert('tr-alert','err',`❌ Stock insuficiente. ${origen} tiene ${stockOrigen} uds.`);
+      btn.disabled=false;btn.textContent='CONFIRMAR TRASPASO';
+      return;
+    }
 
     const stockUsuarios={...(cur.stock_usuarios||{})};
     stockUsuarios[origen]=(stockUsuarios[origen]||0)-cant;
